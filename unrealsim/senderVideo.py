@@ -34,6 +34,8 @@ AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5
 # Capture openen
 capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
 frame_id = 0
+frame_records = {}
+
 
 DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
 
@@ -49,7 +51,7 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records
     frame_delay = 1.0 / MAX_FPS
     global DIRECTION_ANGLE
     while True:
@@ -85,7 +87,6 @@ async def send_messages(websocket):
             print("⏹️ Afsluiten door gebruiker")
             break
 
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
 
@@ -99,6 +100,7 @@ async def send_messages(websocket):
 
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
 
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         message = {
             "frame_id": frame_id,
             "data": encrypted_data,
@@ -109,7 +111,11 @@ async def send_messages(websocket):
             "encryption_time_ms": round(encryption_time, 2)
         }
 
+        frame_records[frame_id] = {'timestamp': time.time()}
+
         await websocket.send(json.dumps(message))
+
+
 
         # FPS limiter
         elapsed = time.time() - frame_start
@@ -117,7 +123,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records
     while True:
         try:
             message = await websocket.recv()
@@ -128,6 +134,12 @@ async def receive_messages(websocket):
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
                 #print(f"DIRECTION ANGLE: {DIRECTION_ANGLE}")
+            if 'frame_id' in message_json:
+                FRAME_ID = message_json['frame_id']
+                received = time.time()
+                frame_records[FRAME_ID]['received'] = received
+                latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
+                print(f"⏱️ Latency frame {FRAME_ID}: {latency_ms:.2f} ms")
 
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
