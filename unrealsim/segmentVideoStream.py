@@ -103,7 +103,6 @@ async def receive_messages():
 
                     # Beperk naar -90 tot 90 graden
                     direction_angle = max(min(angle_deg, 90), -90)
-
                     # Stuur richting naar de server
                     await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2)}))
 
