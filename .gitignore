@@ -2,3 +2,6 @@ masterthesis
 recording
 ros2/analytics/logs
 ros2_yolo_output.mp4
+/venv
+*.mp4
+*.pt
