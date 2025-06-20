@@ -141,7 +141,7 @@ async def receive_messages():
                     cv2.putText(frame, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     cv2.putText(frame, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     if direction_angle is not None:
-                        cv2.putText(frame, f"Direction: {round(direction_angle,2)} deg", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        cv2.putText(frame, f"Direction: {round(angle_deg,2)} deg", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
                     cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
                     cv2.waitKey(1)
