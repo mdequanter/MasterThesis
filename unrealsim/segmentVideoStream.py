@@ -59,6 +59,8 @@ async def receive_messages():
                 np_arr = np.frombuffer(decrypted_data, np.uint8)
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
+                frame_id = message_json["frame_id"]
+
                 if frame is None:
                     continue
 
@@ -104,7 +106,7 @@ async def receive_messages():
                     # Beperk naar -90 tot 90 graden
                     direction_angle = angle_deg
                     # Stuur richting naar de server
-                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2)}))
+                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "frame_id": frame_id}))
 
                 current_time = time.time()
                 frame_times.append(current_time)

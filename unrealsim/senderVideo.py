@@ -11,11 +11,12 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 import os
+import math
 
 # ✅ Instellingen
 USE_VIDEO = True  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
-MAX_FPS = 30  # Max aantal frames per seconde
+MAX_FPS = 20  # Max aantal frames per seconde
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 if len(sys.argv) > 1:
@@ -27,10 +28,14 @@ JPEG_QUALITY = 50
 width = 640
 height = 480
 
+
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
 # Capture openen
 capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
+frame_id = 0
+
+DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
 
 def encrypt_data(plain_text):
     encrypt_start_time = time.time()
@@ -44,8 +49,11 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
 
 async def send_messages(websocket):
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE
     frame_delay = 1.0 / MAX_FPS
+    global DIRECTION_ANGLE
     while True:
+        frame_id+=1
         frame_start = time.time()
         ret, frame = capture.read()
         if not ret:
@@ -57,6 +65,19 @@ async def send_messages(websocket):
                 break
 
         frame = cv2.resize(frame, (width, height))
+
+        # ✅ Teken pijl als DIRECTION_ANGLE beschikbaar is
+        if DIRECTION_ANGLE is not None:
+            center_x = width // 2
+            center_y = height
+            length = 100  # Lengte van de pijl
+
+            rad = math.radians(DIRECTION_ANGLE)
+            end_x = int(center_x + length * math.cos(rad))
+            end_y = int(center_y - length * math.sin(rad))
+
+            cv2.arrowedLine(frame, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
+            cv2.putText(frame, f"{DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         # ✅ Toon de stream op het scherm
         cv2.imshow("Video Stream", frame)
@@ -79,7 +100,7 @@ async def send_messages(websocket):
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
 
         message = {
-            "type": "test",
+            "frame_id": frame_id,
             "data": encrypted_data,
             "timestamp": timestamp,
             "resolution": f"{width}x{height}",
@@ -96,7 +117,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY
+    global JPEG_QUALITY, DIRECTION_ANGLE
     while True:
         try:
             message = await websocket.recv()
@@ -104,6 +125,10 @@ async def receive_messages(websocket):
             if 'quality' in message_json and (1 <= message_json['quality'] <= 100):
                 JPEG_QUALITY = message_json['quality']
                 print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
+            if 'direction_angle' in message_json:
+                DIRECTION_ANGLE = message_json['direction_angle']
+                #print(f"DIRECTION ANGLE: {DIRECTION_ANGLE}")
+
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
             break
