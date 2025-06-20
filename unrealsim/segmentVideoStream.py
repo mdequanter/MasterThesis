@@ -145,7 +145,7 @@ async def receive_messages():
 
                     cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
                     cv2.waitKey(1)
-
+                    
             except websockets.exceptions.ConnectionClosed:
                 print("🚫 Verbinding met server gesloten")
                 break
