@@ -17,7 +17,7 @@ screenOutput = True
 minSegmentSize = 5000  # Minimale grootte (in pixels) van het segment voor het tekenen van een pijl
 
 frame_times = deque(maxlen=100)
-SIGNALING_SERVER = "ws://127.0.0.1:9000"
+SIGNALING_SERVER = "ws://192.168.0.74:9000"
 if len(sys.argv) > 1:
     SIGNALING_SERVER = sys.argv[1]
 
@@ -70,6 +70,7 @@ async def receive_messages():
                 overlay = frame.copy()
                 largest_area = 0
                 largest_center = None
+                direction_angle = None
 
                 for result in results:
                     if result.masks is not None:
@@ -93,6 +94,18 @@ async def receive_messages():
                     start_point = (frame.shape[1] // 2, frame.shape[0])
                     end_point = largest_center
                     cv2.arrowedLine(frame, start_point, end_point, (0, 0, 255), 5, tipLength=0.2)
+
+                    # Bereken richting in graden
+                    dx = largest_center[0] - start_point[0]
+                    dy = start_point[1] - largest_center[1]
+                    angle_rad = np.arctan2(dy, dx)
+                    angle_deg = np.degrees(angle_rad)
+
+                    # Beperk naar -90 tot 90 graden
+                    direction_angle = max(min(angle_deg, 90), -90)
+
+                    # Stuur richting naar de server
+                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2)}))
 
                 current_time = time.time()
                 frame_times.append(current_time)
@@ -128,6 +141,9 @@ async def receive_messages():
                     cv2.putText(frame, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     cv2.putText(frame, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     cv2.putText(frame, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    if direction_angle is not None:
+                        cv2.putText(frame, f"Direction: {round(direction_angle,2)} deg", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
                     cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
                     cv2.waitKey(1)
 
