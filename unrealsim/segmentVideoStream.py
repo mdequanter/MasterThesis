@@ -102,9 +102,9 @@ async def receive_messages():
                     angle_deg = np.degrees(angle_rad)
 
                     # Beperk naar -90 tot 90 graden
-                    direction_angle = max(min(angle_deg, 90), -90)
+                    direction_angle = angle_deg
                     # Stuur richting naar de server
-                    await websocket.send(json.dumps({"direction_angle": round(angle_deg, 2)}))
+                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2)}))
 
                 current_time = time.time()
                 frame_times.append(current_time)
@@ -141,7 +141,7 @@ async def receive_messages():
                     cv2.putText(frame, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     cv2.putText(frame, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     if direction_angle is not None:
-                        cv2.putText(frame, f"Direction: {round(angle_deg,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        cv2.putText(frame, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
                     cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
                     cv2.waitKey(1)
