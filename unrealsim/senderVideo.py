@@ -237,6 +237,7 @@ try:
     asyncio.run(main())
 except KeyboardInterrupt:
     print("⏹️ Afsluiten...")
-finally:
     capture.release()
     cv2.destroyAllWindows()
+finally:
+    print ("🚪 Programma afgesloten.")
