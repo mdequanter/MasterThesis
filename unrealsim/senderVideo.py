@@ -63,6 +63,8 @@ async def send_messages(websocket):
     #cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
     #cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
+    cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
+
     
     while True:
         frame_id+=1
