@@ -103,10 +103,6 @@ async def send_messages(websocket):
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        cv2.imshow("Video Stream", display)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("⏹️ Afsluiten door gebruiker")
-            break
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
@@ -135,7 +131,6 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 
-
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         message = {
             "frame_id": frame_id,
@@ -147,7 +142,16 @@ async def send_messages(websocket):
             "encryption_time_ms": round(encryption_time, 2)
         }
 
+
+
         frame_records[frame_id] = {'timestamp': time.time()}
+
+
+        cv2.imshow("Video Stream", display)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            print("⏹️ Afsluiten door gebruiker")
+            break
+
 
         await websocket.send(json.dumps(message))
 
