@@ -119,6 +119,19 @@ async def send_messages(websocket):
         size_kb = len(compressed_bytes) / 1024
         compression_time = (t1 - t0) * 1000
 
+
+        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        cv2.putText(display, f"res: {width}x{height}", (10, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"size: {size_kb:.2f} KB", (10, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"compress: {compression_time:.2f} ms", (10, 180),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"encrypt: {encryption_time:.2f} ms", (10, 210),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
 
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
