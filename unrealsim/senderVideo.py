@@ -40,6 +40,10 @@ frame_records = {}
 latency_ms = 0  # Variabele om latency bij te houden
 
 
+cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
+cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+
 DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
 
 def encrypt_data(plain_text):
