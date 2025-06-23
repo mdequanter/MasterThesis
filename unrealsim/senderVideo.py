@@ -122,6 +122,9 @@ async def send_messages(websocket):
 
         cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+        encrypted_data, encryption_time = encrypt_data(compressed_bytes)
+
+
         cv2.putText(display, f"res: {width}x{height}", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"size: {size_kb:.2f} KB", (10, 150),
@@ -132,7 +135,6 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 
-        encrypted_data, encryption_time = encrypt_data(compressed_bytes)
 
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         message = {
