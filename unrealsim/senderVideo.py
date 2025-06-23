@@ -22,12 +22,12 @@ MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 ANALYTICS = True  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
-width = 800
-height = 400
+WIDTH = 800
+HEIGHT = 400
 
 # ✅ Commandline parsing
 # Voorbeeld aanroepen:
-# python script.py USE_VIDEO=True VIDEO_PATH=unrealsim/videos/Andere.mp4 MAX_FPS=30 SIGNALING_SERVER=ws://127.0.0.1:9000 ANALYTICS=False JPEG_QUALITY=60 width=640 height=480
+# python script.py USE_VIDEO=True VIDEO_PATH=unrealsim/videos/Andere.mp4 MAX_FPS=30 SIGNALING_SERVER=ws://127.0.0.1:9000 ANALYTICS=False JPEG_QUALITY=60 WIDTH=640 HEIGHT=480
 
 for arg in sys.argv[1:]:
     if arg.startswith("USE_VIDEO="):
@@ -48,16 +48,16 @@ for arg in sys.argv[1:]:
             JPEG_QUALITY = int(arg.split("=")[1])
         except ValueError:
             print("⚠️ Ongeldige JPEG_QUALITY waarde, standaard blijft:", JPEG_QUALITY)
-    elif arg.startswith("width="):
+    elif arg.startswith("WIDTH="):
         try:
             width = int(arg.split("=")[1])
         except ValueError:
-            print("⚠️ Ongeldige width waarde, standaard blijft:", width)
-    elif arg.startswith("height="):
+            print("⚠️ Ongeldige width waarde, standaard blijft:", WIDTH)
+    elif arg.startswith("HEIGHT="):
         try:
             height = int(arg.split("=")[1])
         except ValueError:
-            print("⚠️ Ongeldige height waarde, standaard blijft:", height)
+            print("⚠️ Ongeldige height waarde, standaard blijft:", HEIGHT)
 
 # ✅ Debug print
 print(f"Signaling Server: {SIGNALING_SERVER}")
@@ -66,8 +66,8 @@ print(f"VIDEO_PATH: {VIDEO_PATH}")
 print(f"MAX_FPS: {MAX_FPS}")
 print(f"ANALYTICS: {ANALYTICS}")
 print(f"JPEG_QUALITY: {JPEG_QUALITY}")
-print(f"width: {width}")
-print(f"height: {height}")
+print(f"width: {WIDTH}")
+print(f"height: {HEIGHT}")
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
@@ -127,7 +127,7 @@ async def send_messages(websocket):
             else:
                 break
 
-        frame = cv2.resize(frame, (width, height))
+        frame = cv2.resize(frame, (WIDTH, HEIGHT))
         display = frame.copy()
 
         fps_frame_count += 1
@@ -137,8 +137,8 @@ async def send_messages(websocket):
             fps_frame_count = 0
 
         if DIRECTION_ANGLE is not None:
-            center_x = width // 2
-            center_y = height
+            center_x = WIDTH // 2
+            center_y = HEIGHT
             length = 100
             rad = math.radians(DIRECTION_ANGLE)
             end_x = int(center_x + length * math.cos(rad))
@@ -187,7 +187,7 @@ async def send_messages(websocket):
                         round(sum(acc["size"]) / len(acc["size"]), 2) if acc["size"] else 0,
                         round(sum(acc["compression"]) / len(acc["compression"]), 2) if acc["compression"] else 0,
                         round(sum(acc["encryption"]) / len(acc["encryption"]), 2) if acc["encryption"] else 0,
-                        f"{width}x{height}",
+                        f"{WIDTH}x{HEIGHT}",
                         MAX_FPS,
                         SIGNALING_SERVER
                     ])
