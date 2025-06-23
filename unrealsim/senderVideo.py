@@ -58,16 +58,16 @@ def encrypt_data(plain_text):
 async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records
     frame_delay = 1.0 / MAX_FPS
-    global DIRECTION_ANGLE
-    
-    #cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
-    #cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
 
-    
+    # Variabelen voor FPS-berekening
+    fps_frame_count = 0
+    fps_timer_start = time.time()
+    fps = 0.0
+
     while True:
-        frame_id+=1
+        frame_id += 1
         frame_start = time.time()
         ret, frame = capture.read()
         if not ret:
@@ -80,21 +80,29 @@ async def send_messages(websocket):
 
         frame = cv2.resize(frame, (width, height))
         display = frame.copy()
+
+        # ✅ FPS teller bijwerken
+        fps_frame_count += 1
+        if time.time() - fps_timer_start >= 1.0:
+            fps = fps_frame_count / (time.time() - fps_timer_start)
+            fps_timer_start = time.time()
+            fps_frame_count = 0
+
         # ✅ Teken pijl als DIRECTION_ANGLE beschikbaar is
         if DIRECTION_ANGLE is not None:
             center_x = width // 2
             center_y = height
-            length = 100  # Lengte van de pijl
+            length = 100
 
             rad = math.radians(DIRECTION_ANGLE)
             end_x = int(center_x + length * math.cos(rad))
             end_y = int(center_y - length * math.sin(rad))
             cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
             cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-
-        # ✅ Toon de stream op het scherm
         cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("⏹️ Afsluiten door gebruiker")
@@ -128,12 +136,10 @@ async def send_messages(websocket):
 
         await websocket.send(json.dumps(message))
 
-
-
-        # FPS limiter
         elapsed = time.time() - frame_start
         sleep_time = max(0, frame_delay - elapsed)
         await asyncio.sleep(sleep_time)
+
 
 async def receive_messages(websocket):
     global JPEG_QUALITY, DIRECTION_ANGLE, frame_records,latency_ms
