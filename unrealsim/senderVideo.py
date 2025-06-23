@@ -1,6 +1,33 @@
+import sys
+import asyncio
+import json
+import websockets
+import time
+import cv2
+import base64
+import io
+import csv
+from PIL import Image
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
+import os
+import math
+from datetime import datetime
+
+# ✅ Standaardinstellingen
+USE_VIDEO = False  # True = video, False = webcam
+VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
+MAX_FPS = 20
+SIGNALING_SERVER = "ws://192.168.0.74:9000"
+ANALYTICS = True  # 🔑 Analytics aan of uit
+JPEG_QUALITY = 50
+width = 800
+height = 400
+
 # ✅ Commandline parsing
 # Voorbeeld aanroepen:
-# python script.py USE_VIDEO=True VIDEO_PATH=path MAX_FPS=30 SIGNALING_SERVER=ws://... ANALYTICS=False
+# python script.py USE_VIDEO=True VIDEO_PATH=unrealsim/videos/Andere.mp4 MAX_FPS=30 SIGNALING_SERVER=ws://127.0.0.1:9000 ANALYTICS=False JPEG_QUALITY=60 width=640 height=480
 
 for arg in sys.argv[1:]:
     if arg.startswith("USE_VIDEO="):
@@ -16,6 +43,21 @@ for arg in sys.argv[1:]:
         SIGNALING_SERVER = arg.split("=", 1)[1]
     elif arg.startswith("ANALYTICS="):
         ANALYTICS = arg.split("=")[1].lower() == "true"
+    elif arg.startswith("JPEG_QUALITY="):
+        try:
+            JPEG_QUALITY = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige JPEG_QUALITY waarde, standaard blijft:", JPEG_QUALITY)
+    elif arg.startswith("width="):
+        try:
+            width = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige width waarde, standaard blijft:", width)
+    elif arg.startswith("height="):
+        try:
+            height = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige height waarde, standaard blijft:", height)
 
 # ✅ Debug print
 print(f"Signaling Server: {SIGNALING_SERVER}")
@@ -23,10 +65,9 @@ print(f"USE_VIDEO: {USE_VIDEO}")
 print(f"VIDEO_PATH: {VIDEO_PATH}")
 print(f"MAX_FPS: {MAX_FPS}")
 print(f"ANALYTICS: {ANALYTICS}")
-
-JPEG_QUALITY = 50
-width = 800
-height = 400
+print(f"JPEG_QUALITY: {JPEG_QUALITY}")
+print(f"width: {width}")
+print(f"height: {height}")
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
