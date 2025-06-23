@@ -26,9 +26,6 @@ WIDTH = 800
 HEIGHT = 400
 
 # ✅ Commandline parsing
-# Voorbeeld aanroepen:
-# python script.py USE_VIDEO=True VIDEO_PATH=unrealsim/videos/Andere.mp4 MAX_FPS=30 SIGNALING_SERVER=ws://127.0.0.1:9000 ANALYTICS=False JPEG_QUALITY=60 WIDTH=640 HEIGHT=480
-
 for arg in sys.argv[1:]:
     if arg.startswith("USE_VIDEO="):
         USE_VIDEO = arg.split("=")[1].lower() == "true"
@@ -50,16 +47,15 @@ for arg in sys.argv[1:]:
             print("⚠️ Ongeldige JPEG_QUALITY waarde, standaard blijft:", JPEG_QUALITY)
     elif arg.startswith("WIDTH="):
         try:
-            width = int(arg.split("=")[1])
+            WIDTH = int(arg.split("=")[1])
         except ValueError:
-            print("⚠️ Ongeldige width waarde, standaard blijft:", WIDTH)
+            print("⚠️ Ongeldige WIDTH waarde, standaard blijft:", WIDTH)
     elif arg.startswith("HEIGHT="):
         try:
-            height = int(arg.split("=")[1])
+            HEIGHT = int(arg.split("=")[1])
         except ValueError:
-            print("⚠️ Ongeldige height waarde, standaard blijft:", HEIGHT)
+            print("⚠️ Ongeldige HEIGHT waarde, standaard blijft:", HEIGHT)
 
-# ✅ Debug print
 print(f"Signaling Server: {SIGNALING_SERVER}")
 print(f"USE_VIDEO: {USE_VIDEO}")
 print(f"VIDEO_PATH: {VIDEO_PATH}")
@@ -76,8 +72,8 @@ frame_id = 0
 frame_records = {}
 latency_ms = 0
 DIRECTION_ANGLE = None
+should_exit = False
 
-# Analytics setup
 if ANALYTICS:
     os.makedirs("unrealsim/analytics", exist_ok=True)
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -104,7 +100,7 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -115,7 +111,7 @@ async def send_messages(websocket):
     fps_timer_start = time.time()
     fps = 0.0
 
-    while True:
+    while not should_exit:
         frame_id += 1
         frame_start = time.time()
         ret, frame = capture.read()
@@ -152,6 +148,12 @@ async def send_messages(websocket):
         cv2.putText(display, f"FPS: {fps:.2f}", (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+        cv2.imshow("Video Stream", display)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            print("⏹️ Afsluiten door gebruiker")
+            should_exit = True
+            break
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
         compressed_image_io = io.BytesIO()
@@ -163,11 +165,6 @@ async def send_messages(websocket):
         compression_time = (t1 - t0) * 1000
 
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
-
-        cv2.imshow("Video Stream", display)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("⏹️ Afsluiten door gebruiker")
-            break
 
         if ANALYTICS:
             acc["latency"].append(latency_ms)
@@ -208,8 +205,8 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms
-    while True:
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit
+    while not should_exit:
         try:
             message = await websocket.recv()
             message_json = json.loads(message)
@@ -225,6 +222,7 @@ async def receive_messages(websocket):
                     latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
+            should_exit = True
             break
 
 async def main():
