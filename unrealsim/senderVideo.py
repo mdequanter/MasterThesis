@@ -1,31 +1,28 @@
-import sys
-import asyncio
-import json
-import websockets
-import time
-import cv2
-import base64
-import io
-import csv
-from PIL import Image
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.backends import default_backend
-import os
-import math
-from datetime import datetime
+# ✅ Commandline parsing
+# Voorbeeld aanroepen:
+# python script.py USE_VIDEO=True VIDEO_PATH=path MAX_FPS=30 SIGNALING_SERVER=ws://... ANALYTICS=False
 
-# ✅ Instellingen
-USE_VIDEO = False  # True = video, False = webcam
-VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
-MAX_FPS = 20
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
-ANALYTICS = True  # 🔑 Analytics aan of uit
+for arg in sys.argv[1:]:
+    if arg.startswith("USE_VIDEO="):
+        USE_VIDEO = arg.split("=")[1].lower() == "true"
+    elif arg.startswith("VIDEO_PATH="):
+        VIDEO_PATH = arg.split("=", 1)[1]
+    elif arg.startswith("MAX_FPS="):
+        try:
+            MAX_FPS = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige MAX_FPS waarde, standaard blijft:", MAX_FPS)
+    elif arg.startswith("SIGNALING_SERVER="):
+        SIGNALING_SERVER = arg.split("=", 1)[1]
+    elif arg.startswith("ANALYTICS="):
+        ANALYTICS = arg.split("=")[1].lower() == "true"
 
-if len(sys.argv) > 1:
-    SIGNALING_SERVER = sys.argv[1]
-
+# ✅ Debug print
 print(f"Signaling Server: {SIGNALING_SERVER}")
+print(f"USE_VIDEO: {USE_VIDEO}")
+print(f"VIDEO_PATH: {VIDEO_PATH}")
+print(f"MAX_FPS: {MAX_FPS}")
+print(f"ANALYTICS: {ANALYTICS}")
 
 JPEG_QUALITY = 50
 width = 800
