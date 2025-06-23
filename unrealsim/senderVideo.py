@@ -16,7 +16,7 @@ import math
 from datetime import datetime
 
 # ✅ Instellingen
-USE_VIDEO = True  # True = video, False = webcam
+USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
 MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
