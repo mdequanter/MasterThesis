@@ -98,10 +98,10 @@ async def send_messages(websocket):
             end_x = int(center_x + length * math.cos(rad))
             end_y = int(center_y - length * math.sin(rad))
             cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
-            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1)
 
-        cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1)
+        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 1)
 
         cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
