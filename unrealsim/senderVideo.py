@@ -60,8 +60,8 @@ async def send_messages(websocket):
     frame_delay = 1.0 / MAX_FPS
     global DIRECTION_ANGLE
     
-    cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    #cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
+    #cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     
     while True:
