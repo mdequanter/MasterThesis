@@ -40,8 +40,6 @@ frame_records = {}
 latency_ms = 0  # Variabele om latency bij te houden
 
 
-cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
-cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
 
 DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
@@ -61,6 +59,11 @@ async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records
     frame_delay = 1.0 / MAX_FPS
     global DIRECTION_ANGLE
+    
+    cv2.namedWindow("Video Stream", cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+    
     while True:
         frame_id+=1
         frame_start = time.time()
