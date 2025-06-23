@@ -16,17 +16,19 @@ import math
 # ✅ Instellingen
 USE_VIDEO = True  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
-MAX_FPS = 20  # Max aantal frames per seconde
+MAX_FPS = 20 # Max aantal frames per seconde
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
+#SIGNALING_SERVER = "ws://heliwi.duckdns.org:9000"
+
 if len(sys.argv) > 1:
     SIGNALING_SERVER = sys.argv[1]
 
 print(f"Signaling Server: {SIGNALING_SERVER}")
 
 JPEG_QUALITY = 50
-width = 640
-height = 480
+width = 320
+height = 240
 
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
@@ -35,6 +37,7 @@ AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5
 capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
 frame_id = 0
 frame_records = {}
+latency_ms = 0  # Variabele om latency bij te houden
 
 
 DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
@@ -67,7 +70,7 @@ async def send_messages(websocket):
                 break
 
         frame = cv2.resize(frame, (width, height))
-
+        display = frame.copy()
         # ✅ Teken pijl als DIRECTION_ANGLE beschikbaar is
         if DIRECTION_ANGLE is not None:
             center_x = width // 2
@@ -77,12 +80,13 @@ async def send_messages(websocket):
             rad = math.radians(DIRECTION_ANGLE)
             end_x = int(center_x + length * math.cos(rad))
             end_y = int(center_y - length * math.sin(rad))
+            cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
+            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
-            cv2.arrowedLine(frame, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
-            cv2.putText(frame, f"{DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         # ✅ Toon de stream op het scherm
-        cv2.imshow("Video Stream", frame)
+        cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("⏹️ Afsluiten door gebruiker")
             break
@@ -123,7 +127,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records,latency_ms
     while True:
         try:
             message = await websocket.recv()
@@ -139,7 +143,7 @@ async def receive_messages(websocket):
                 received = time.time()
                 frame_records[FRAME_ID]['received'] = received
                 latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
-                print(f"⏱️ Latency frame {FRAME_ID}: {latency_ms:.2f} ms")
+                #print(f"⏱️ Latency frame {FRAME_ID}: {latency_ms:.2f} ms")
 
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")

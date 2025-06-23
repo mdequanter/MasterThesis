@@ -72,7 +72,7 @@ async def receive_messages():
                 overlay = frame.copy()
                 largest_area = 0
                 largest_center = None
-                direction_angle = None
+                direction_angle = 90
 
                 for result in results:
                     if result.masks is not None:
@@ -142,8 +142,7 @@ async def receive_messages():
                     cv2.putText(frame, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     cv2.putText(frame, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
                     cv2.putText(frame, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-                    if direction_angle is not None:
-                        cv2.putText(frame, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.putText(frame, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
                     cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
                     cv2.waitKey(1)
