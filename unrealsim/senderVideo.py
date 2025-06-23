@@ -152,7 +152,7 @@ async def send_messages(websocket):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("⏹️ Afsluiten door gebruiker")
             should_exit = True
-            break
+            exit()
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
@@ -223,7 +223,7 @@ async def receive_messages(websocket):
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
             should_exit = True
-            break
+            exit()
 
 async def main():
     async with websockets.connect(SIGNALING_SERVER) as websocket:
