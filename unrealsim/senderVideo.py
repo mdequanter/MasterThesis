@@ -27,8 +27,8 @@ if len(sys.argv) > 1:
 print(f"Signaling Server: {SIGNALING_SERVER}")
 
 JPEG_QUALITY = 50
-width = 320
-height = 240
+width = 800
+height = 480
 
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
