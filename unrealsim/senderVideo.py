@@ -232,12 +232,13 @@ async def main():
             send_messages(websocket),
             receive_messages(websocket)
         )
+    print("⏹️ Afsluiten door indrukken van 'q' of normale beëindiging.")
 
 try:
     asyncio.run(main())
 except KeyboardInterrupt:
-    print("⏹️ Afsluiten...")
+    print("⏹️ Afsluiten door KeyboardInterrupt...")
+finally:
     capture.release()
     cv2.destroyAllWindows()
-finally:
-    print ("🚪 Programma afgesloten.")
+    print("✅ Programma netjes afgesloten.")
