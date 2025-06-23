@@ -6,20 +6,21 @@ import time
 import cv2
 import base64
 import io
+import csv
 from PIL import Image
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 import os
 import math
+from datetime import datetime
 
 # ✅ Instellingen
 USE_VIDEO = True  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
-MAX_FPS = 20 # Max aantal frames per seconde
-
+MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
-#SIGNALING_SERVER = "ws://heliwi.duckdns.org:9000"
+ANALYTICS = True  # 🔑 Analytics aan of uit
 
 if len(sys.argv) > 1:
     SIGNALING_SERVER = sys.argv[1]
@@ -30,19 +31,28 @@ JPEG_QUALITY = 50
 width = 800
 height = 400
 
-
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
-# Capture openen
 capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
 frame_id = 0
 frame_records = {}
-latency_ms = 0  # Variabele om latency bij te houden
+latency_ms = 0
+DIRECTION_ANGLE = None
 
-
-
-
-DIRECTION_ANGLE = None  # Globale variabele om richting bij te houden
+# Analytics setup
+if ANALYTICS:
+    os.makedirs("unrealsim/analytics", exist_ok=True)
+    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_filename = f"unrealsim/analytics/benchmark_{timestamp_str}.csv"
+    with open(csv_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            "datetime", "avg_latency_ms", "avg_fps", "avg_size_kb",
+            "avg_compression_ms", "avg_encryption_ms",
+            "resolution", "max_fps", "signaling_server"
+        ])
+    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [] }
+    slot_start_time = time.time()
 
 def encrypt_data(plain_text):
     encrypt_start_time = time.time()
@@ -56,12 +66,13 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records
-    frame_delay = 1.0 / MAX_FPS
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms
+    if ANALYTICS:
+        global acc, slot_start_time
 
+    frame_delay = 1.0 / MAX_FPS
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
 
-    # Variabelen voor FPS-berekening
     fps_frame_count = 0
     fps_timer_start = time.time()
     fps = 0.0
@@ -81,32 +92,30 @@ async def send_messages(websocket):
         frame = cv2.resize(frame, (width, height))
         display = frame.copy()
 
-        # ✅ FPS teller bijwerken
         fps_frame_count += 1
         if time.time() - fps_timer_start >= 1.0:
             fps = fps_frame_count / (time.time() - fps_timer_start)
             fps_timer_start = time.time()
             fps_frame_count = 0
 
-        # ✅ Teken pijl als DIRECTION_ANGLE beschikbaar is
         if DIRECTION_ANGLE is not None:
             center_x = width // 2
             center_y = height
             length = 100
-
             rad = math.radians(DIRECTION_ANGLE)
             end_x = int(center_x + length * math.cos(rad))
             end_y = int(center_y - length * math.sin(rad))
             cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
-            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
+        cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(frame_rgb)
-
         compressed_image_io = io.BytesIO()
         t0 = time.time()
         pil_image.save(compressed_image_io, format="JPEG", quality=JPEG_QUALITY)
@@ -115,53 +124,53 @@ async def send_messages(websocket):
         size_kb = len(compressed_bytes) / 1024
         compression_time = (t1 - t0) * 1000
 
-
-        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
-
-
-        cv2.putText(display, f"res: {width}x{height}", (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"size: {size_kb:.2f} KB", (10, 150),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"compress: {compression_time:.2f} ms", (10, 180),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"encrypt: {encryption_time:.2f} ms", (10, 210),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        message = {
-            "frame_id": frame_id,
-            "data": encrypted_data,
-            "timestamp": timestamp,
-            "resolution": f"{width}x{height}",
-            "size_kb": round(size_kb, 2),
-            "compression_time_ms": round(compression_time, 2),
-            "encryption_time_ms": round(encryption_time, 2)
-        }
-
-
-
-        frame_records[frame_id] = {'timestamp': time.time()}
-
 
         cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("⏹️ Afsluiten door gebruiker")
             break
 
+        if ANALYTICS:
+            acc["latency"].append(latency_ms)
+            acc["fps"].append(fps)
+            acc["size"].append(size_kb)
+            acc["compression"].append(compression_time)
+            acc["encryption"].append(encryption_time)
 
+            if time.time() - slot_start_time >= 10.0:
+                with open(csv_filename, mode='a', newline='') as file:
+                    writer = csv.writer(file)
+                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    writer.writerow([
+                        now,
+                        round(sum(acc["latency"]) / len(acc["latency"]), 2) if acc["latency"] else 0,
+                        round(sum(acc["fps"]) / len(acc["fps"]), 2) if acc["fps"] else 0,
+                        round(sum(acc["size"]) / len(acc["size"]), 2) if acc["size"] else 0,
+                        round(sum(acc["compression"]) / len(acc["compression"]), 2) if acc["compression"] else 0,
+                        round(sum(acc["encryption"]) / len(acc["encryption"]), 2) if acc["encryption"] else 0,
+                        f"{width}x{height}",
+                        MAX_FPS,
+                        SIGNALING_SERVER
+                    ])
+                acc = {k: [] for k in acc}
+                slot_start_time = time.time()
+
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        message = {
+            "frame_id": frame_id,
+            "data": encrypted_data,
+            "timestamp": timestamp
+        }
+        frame_records[frame_id] = {'timestamp': time.time()}
         await websocket.send(json.dumps(message))
 
         elapsed = time.time() - frame_start
         sleep_time = max(0, frame_delay - elapsed)
         await asyncio.sleep(sleep_time)
 
-
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records,latency_ms
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms
     while True:
         try:
             message = await websocket.recv()
@@ -171,14 +180,11 @@ async def receive_messages(websocket):
                 print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
-                #print(f"DIRECTION ANGLE: {DIRECTION_ANGLE}")
             if 'frame_id' in message_json:
                 FRAME_ID = message_json['frame_id']
                 received = time.time()
-                frame_records[FRAME_ID]['received'] = received
-                latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
-                #print(f"⏱️ Latency frame {FRAME_ID}: {latency_ms:.2f} ms")
-
+                if FRAME_ID in frame_records:
+                    latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
             break
