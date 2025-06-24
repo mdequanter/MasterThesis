@@ -83,7 +83,9 @@ if ANALYTICS:
         writer.writerow([
             "datetime", "avg_latency_ms", "avg_fps", "avg_size_kb",
             "avg_compression_ms", "avg_encryption_ms",
-            "resolution", "max_fps", "signaling_server"
+            "resolution", "max_fps", "signaling_server",
+            "jpeg_quality", "width", "height",
+
         ])
     acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [] }
     slot_start_time = time.time()
@@ -195,6 +197,10 @@ async def send_messages(websocket):
         message = {
             "frame_id": frame_id,
             "data": encrypted_data,
+            "resolution": f"{WIDTH}x{HEIGHT}",
+            "size_kb": size_kb,
+            "compression_time_ms": compression_time,
+            "encryption_time_ms": encryption_time,
             "timestamp": timestamp
         }
         frame_records[frame_id] = {'timestamp': time.time()}

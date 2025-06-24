@@ -13,14 +13,27 @@ from cryptography.hazmat.backends import default_backend
 from collections import deque
 
 # ✅ Settings
-screenOutput = False  # Zet op False om zonder cv2.imshow te draaien
+screenOutput = True  # Zet op False om zonder cv2.imshow te draaien
 
 frame_times = deque(maxlen=100)  # Schuivend venster van tijdstempels
 
-SIGNALING_SERVER = "ws://127.0.0.1:9000"
+MODEL = 'unrealsim/models/blindnavUnreal.pt'
+SIGNALING_SERVER = "ws://192.168.0.74:9000"  # Signaling server URL
 
-if len(sys.argv) > 1:
-    SIGNALING_SERVER = sys.argv[1]
+frame_times = deque(maxlen=100)
+
+# ✅ Commandline parsing
+for arg in sys.argv[1:]:
+    if arg.startswith("SIGNALING_SERVER="):
+        SIGNALING_SERVER = arg.split("=", 1)[1]
+    elif arg.startswith("MODEL="):
+        try:
+            MODEL = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige MODEL waarde, standaard blijft:", MODEL)
+
+print(f"Signaling Server: {SIGNALING_SERVER}")
+print(f"MODEL: {MODEL}")
 
 wantedFramerate = 25
 maxQuality = 60

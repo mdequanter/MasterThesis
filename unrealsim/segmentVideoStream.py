@@ -15,18 +15,33 @@ from ultralytics import YOLO
 # ✅ Settings
 screenOutput = True
 minSegmentSize = 5000  # Minimale grootte (in pixels) van het segment voor het tekenen van een pijl
+MODEL = 'unrealsim/models/blindnavUnreal.pt'
+SIGNALING_SERVER = "ws://192.168.0.74:9000"  # Signaling server URL
 
 frame_times = deque(maxlen=100)
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
-if len(sys.argv) > 1:
-    SIGNALING_SERVER = sys.argv[1]
+
+# ✅ Commandline parsing
+for arg in sys.argv[1:]:
+    if arg.startswith("SIGNALING_SERVER="):
+        SIGNALING_SERVER = arg.split("=", 1)[1]
+    elif arg.startswith("MODEL="):
+        try:
+            MODEL = int(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige MODEL waarde, standaard blijft:", MODEL)
+
+print(f"Signaling Server: {SIGNALING_SERVER}")
+print(f"MODEL: {MODEL}")
+
+
+
 
 wantedFramerate = 8
 maxQuality = 60
 TARGET_WIDTH, TARGET_HEIGHT = 640, 480
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
-model = YOLO('unrealsim/models/blindnavUnreal.pt', verbose=True)
+model = YOLO(MODEL, verbose=True)
 
 def decrypt_data(encrypted_base64):
     encrypted_data = base64.b64decode(encrypted_base64)
