@@ -24,6 +24,8 @@ ANALYTICS = True  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
 WIDTH = 800
 HEIGHT = 400
+FULLSCREEN = False  
+
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -55,6 +57,8 @@ for arg in sys.argv[1:]:
             HEIGHT = int(arg.split("=")[1])
         except ValueError:
             print("⚠️ Ongeldige HEIGHT waarde, standaard blijft:", HEIGHT)
+    elif arg.startswith("FULLSCREEN="):
+        FULLSCREEN = arg.split("=")[1].lower() == "true"
 
 print(f"Signaling Server: {SIGNALING_SERVER}")
 print(f"USE_VIDEO: {USE_VIDEO}")
@@ -64,6 +68,9 @@ print(f"ANALYTICS: {ANALYTICS}")
 print(f"JPEG_QUALITY: {JPEG_QUALITY}")
 print(f"width: {WIDTH}")
 print(f"height: {HEIGHT}")
+print(f"FULLSCREEN: {FULLSCREEN}")
+
+
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
@@ -108,7 +115,8 @@ async def send_messages(websocket):
 
     frame_delay = 1.0 / MAX_FPS
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
-
+    if FULLSCREEN:
+        cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     fps_frame_count = 0
     fps_timer_start = time.time()
     fps = 0.0
