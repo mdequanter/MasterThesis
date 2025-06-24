@@ -1,3 +1,10 @@
+###### Commands to install the service
+#sudo cp segmentvideo.service /etc/systemd/system/segmentvideo.service
+#sudo systemctl daemon-reexec   # or: sudo systemctl daemon-reload
+#sudo systemctl enable segmentvideo.service
+#sudo systemctl start segmentvideo.service
+
+
 [Unit]
 Description=VideoSegmentation with venv
 After=network.target
