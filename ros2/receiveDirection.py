@@ -91,33 +91,37 @@ class DirectionController(Node):
     def add_direction(self, angle):
         self.buffer.append(angle)
 
-def process(self):
-    now = time.time()
-    if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
-        if not self.buffer:
-            return
+    def process(self):
+        now = time.time()
+        if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
+            if not self.buffer:
+                return
+            avg_angle = sum(self.buffer) / len(self.buffer)
+            self.buffer.clear()
 
-        avg_angle = sum(self.buffer) / len(self.buffer)
-        self.buffer.clear()
+            twist = Twist()
+            twist.linear.x = 0.1  # 🚫 niet vooruit
+            error = avg_angle - 90.0
 
-        error = avg_angle - 90.0  # 90 = midden
-        twist = Twist()
 
-        if abs(error) < 3.0:  # kleinere drempel
-            twist.linear.x = 0.2
-            twist.angular.z = 0.0
-        elif round(avg_angle, 2) == 90.00:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.6  # iets meer draaien bij geen detectie
-        else:
-            # Proportioneel sturen
-            proportion = error / 90.0
-            twist.linear.x = max(0.05, 0.2 - abs(proportion) * 0.1)  # trager bij grotere fout
-            twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)) * 0.015  # schaal kleiner
 
-        self.publisher.publish(twist)
-        print(f"➡️ Richting: {avg_angle:.2f}° | error={error:.2f} | angular.z={twist.angular.z:.2f}")
-        self.last_publish_time = now
+            if abs(error) < 1.0:
+                twist.angular.z = 0.0
+                twist.linear.x = 0.2  # 🚫 niet vooruit
+            else:
+                twist.linear.x = 0.05
+                proportion = error / 90.0
+                twist.angular.z = (max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)))*1.00
+                
+            if (round(avg_angle,2) == 90.00):  # er is geen detectie
+                twist.angular.z = 0.5
+                twist.linear.x = 0.0  # 🚫 niet vooruit
+
+
+
+            self.publisher.publish(twist)
+            print(f"➡️ Gemiddelde richting: {avg_angle:.2f}° → angular.z = {twist.angular.z:.2f}")
+            self.last_publish_time = now
 
 async def receive_direction(controller: DirectionController):
     print(f"📡 Verbinden met: {SIGNALING_SERVER}")
