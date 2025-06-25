@@ -40,6 +40,8 @@ class ROS2VideoRecorder(Node):
 
         os.makedirs('ros2/recording', exist_ok=True)
 
+        print (f"Using video topic: {VIDEO_TOPIC}")
+
         self.subscription = self.create_subscription(
             CompressedImage,
             VIDEO_TOPIC,
