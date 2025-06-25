@@ -26,7 +26,7 @@ for arg in sys.argv[1:]:
         SIGNALING_SERVER = arg.split("=", 1)[1]
     elif arg.startswith("MODEL="):
         try:
-            MODEL = int(arg.split("=")[1])
+            MODEL = arg.split("=")[1]
         except ValueError:
             print("⚠️ Ongeldige MODEL waarde, standaard blijft:", MODEL)
 
