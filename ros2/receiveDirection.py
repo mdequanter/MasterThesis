@@ -4,7 +4,7 @@ import json
 import websockets
 
 # ✅ Signaling server instellen via commandline
-SIGNALING_SERVER = "ws://localhost:9000"
+SIGNALING_SERVER = "ws://192.168.0.74:9000"
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
