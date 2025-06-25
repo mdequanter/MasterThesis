@@ -14,7 +14,7 @@ import time
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 5
-MAX_ANGULAR = 20.0
+MAX_ANGULAR = 1.0  # Max angular speed in rad/s
 
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
