@@ -100,16 +100,17 @@ class DirectionController(Node):
             self.buffer.clear()
 
             twist = Twist()
-            twist.linear.x = 0.0  # 🚫 niet vooruit
+            twist.linear.x = 0.2  # 🚫 niet vooruit
             error = avg_angle - 90.0
 
 
             if abs(error) < 1.0:
                 twist.angular.z = 0.0
-                twist.linear.x = 0.1  # 🚶‍♂️ vooruit als bijna recht
+                twist.linear.x = 0.0  # 🚫 niet vooruit
             else:
                 proportion = error / 90.0
                 twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
+                
 
             self.publisher.publish(twist)
             print(f"➡️ Gemiddelde richting: {avg_angle:.2f}° → angular.z = {twist.angular.z:.2f}")
