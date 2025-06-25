@@ -6,17 +6,14 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data
-from rclpy.publisher import Publisher
-from geometry_msgs.msg import Twist
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
 import time
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
-COMMAND_RATE = 5
-MAX_ANGULAR = 1.0
+COMMAND_RATE = 5  # keer per seconde een gemiddelde printen
 
-# ✅ Parse CLI arguments
+# ✅ Commandline parameters verwerken
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
@@ -25,11 +22,6 @@ for arg in sys.argv[1:]:
             COMMAND_RATE = float(arg.split("=")[1])
         except ValueError:
             print("⚠️ Ongeldige COMMAND_RATE, standaard blijft:", COMMAND_RATE)
-    elif arg.startswith("MAX_ANGULAR="):
-        try:
-            MAX_ANGULAR = float(arg.split("=")[1])
-        except ValueError:
-            print("⚠️ Ongeldige MAX_ANGULAR waarde, standaard blijft:", MAX_ANGULAR)
 
 class DockChecker(Node):
     def __init__(self):
@@ -81,49 +73,30 @@ class Undocker(Node):
         self.get_logger().info('✅ Undock voltooid.')
         return True
 
-class DirectionController(Node):
-    def __init__(self):
-        super().__init__('direction_controller')
-        self.publisher: Publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.buffer = []
-        self.last_publish_time = time.time()
+async def receive_direction():
+    print(f"📡 Luisteren op: {SIGNALING_SERVER}")
+    direction_buffer = []
+    last_print_time = time.time()
 
-    def add_direction(self, angle):
-        self.buffer.append(angle)
-
-    def process(self):
-        now = time.time()
-        if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
-            if not self.buffer:
-                return
-            avg_angle = sum(self.buffer) / len(self.buffer)
-            self.buffer.clear()
-
-            twist = Twist()
-            twist.linear.x = 0.0  # 🚫 niet vooruit
-            error = avg_angle - 90.0
-
-            if abs(error) < 1.0:
-                twist.angular.z = 0.0
-            else:
-                proportion = error / 90.0
-                twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
-
-            self.publisher.publish(twist)
-            print(f"➡️ Gemiddelde richting: {avg_angle:.2f}° → angular.z = {twist.angular.z:.2f}")
-            self.last_publish_time = now
-
-async def receive_direction(controller: DirectionController):
-    print(f"📡 Verbinden met: {SIGNALING_SERVER}")
     async with websockets.connect(SIGNALING_SERVER) as websocket:
         print(f"✅ Verbonden met {SIGNALING_SERVER}")
-        while rclpy.ok():
+        while True:
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
+
                 if "direction_angle" in data:
-                    controller.add_direction(data["direction_angle"])
-                controller.process()
+                    direction = data["direction_angle"]
+                    direction_buffer.append(direction)
+
+                current_time = time.time()
+                if current_time - last_print_time >= 1.0 / COMMAND_RATE:
+                    if direction_buffer:
+                        avg = sum(direction_buffer) / len(direction_buffer)
+                        print(f"➡️ Gemiddelde richting (laatste {len(direction_buffer)}): {avg:.2f}°")
+                        direction_buffer.clear()
+                    last_print_time = current_time
+
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
                 break
@@ -133,12 +106,10 @@ async def receive_direction(controller: DirectionController):
 def main():
     rclpy.init()
 
-    # ✅ Check dock status
     checker = DockChecker()
     is_docked = checker.is_docked()
     checker.destroy_node()
 
-    # ✅ Undock indien nodig
     if is_docked:
         print("📦 Robot is gedockt, probeer te undocken...")
         undocker = Undocker()
@@ -150,18 +121,12 @@ def main():
     else:
         print("✅ Robot is NIET gedockt. Geen undock nodig.")
 
-    # ✅ Start ROS2 node en asyncio WebSocket loop
-    controller = DirectionController()
-
-    loop = asyncio.get_event_loop()
-    loop.create_task(receive_direction(controller))  # async direction handler
+    rclpy.shutdown()
 
     try:
-        while rclpy.ok():
-            rclpy.spin_once(controller, timeout_sec=0.1)
-            loop.run_until_complete(asyncio.sleep(0.01))  # laat asyncio ook draaien
+        asyncio.run(receive_direction())
     except KeyboardInterrupt:
         print("⏹️ Afgesloten door gebruiker")
-    finally:
-        controller.destroy_node()
-        rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
