@@ -16,6 +16,9 @@ SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
 MAX_ANGULAR = 10.0  # Max angular speed in rad/s
 
+
+detected = False  # Global variable to track if an object is detected
+
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
@@ -92,6 +95,7 @@ class DirectionController(Node):
         self.buffer.append(angle)
 
     def process(self):
+        global detected
         now = time.time()
         if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
             if not self.buffer:
@@ -108,18 +112,10 @@ class DirectionController(Node):
             twist.angular.z = (max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)))*1.
             
 
+            if detected == True :  # er is geen detectie
+                self.publisher.publish(twist)
+                print(f"➡️ x: {twist.lineear.x:.2f} ,  z = {twist.angular.z:.2f}")
 
-
-            if (round(avg_angle,2) == 90.00):  # er is geen detectie
-                twist.angular.z = 0.1
-                twist.linear.x = 0.0 # 🚫 niet vooruit
-            else:
-                twist.linear.x = 0.0  # 🚫 niet vooruit
-
-
-
-            self.publisher.publish(twist)
-            print(f"➡️ Gemiddelde richting: {avg_angle:.2f}° → angular.z = {twist.angular.z:.2f}")
             self.last_publish_time = now
 
 async def receive_direction(controller: DirectionController):
@@ -133,6 +129,9 @@ async def receive_direction(controller: DirectionController):
                 if "direction_angle" in data and data["detected"] == True:
                     controller.add_direction(data["direction_angle"])
                 controller.process()
+                if ("detected" in data and data["detected"] == False):
+                    print("❗ Geen object gedetecteerd, draai rond")
+                    controller.add_direction(90.0)
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
                 break
