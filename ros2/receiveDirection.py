@@ -130,8 +130,7 @@ async def receive_direction(controller: DirectionController):
                     controller.add_direction(data["direction_angle"])
                 controller.process()
                 if ("detected" in data and data["detected"] == False):
-                    print("❗ Geen object gedetecteerd, draai rond")
-                    controller.add_direction(90.0)
+                    print("❗ Geen PATH gedetecteerd")
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
                 break
