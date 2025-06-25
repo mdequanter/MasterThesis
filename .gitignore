@@ -6,3 +6,4 @@ ros2_yolo_output.mp4
 *.jpg
 *.pt
 *.csv
+/videos/venv

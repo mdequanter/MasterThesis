@@ -1,0 +1,30 @@
+###### Commands to install the service
+#sudo cp segmentvideo.service /etc/systemd/system/segmentvideo.service
+#sudo systemctl daemon-reexec   # or: sudo systemctl daemon-reload
+#sudo systemctl enable segmentvideo.service
+#sudo systemctl start segmentvideo.service
+
+
+[Unit]
+Description=VideoSegmentation with venv
+After=network.target
+
+[Service]
+# Zet de volledige pad naar de Python-interpreter in je venv
+ExecStart=/home/ubuntu/Documents/MasterThesis/venv/bin/python /home/ubuntu/Documents/MasterThesis/unrealsim/segmentVideoStream.py MODEL='home/ubuntu/Documents/MasterThesis/unrealsim/models/canicross.pt'
+
+# Optioneel: werkdirectory (bijvoorbeeld als je relatieve paden gebruikt in je script)
+WorkingDirectory=/home/ubuntu/Documents/MasterThesis
+
+# Herstart als het crasht
+Restart=always
+RestartSec=5
+
+# Voer uit als jouw gebruiker (pas aan indien nodig)
+User=ubuntu
+
+# Voorkom dat het stopt bij logout
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

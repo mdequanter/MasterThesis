@@ -103,9 +103,6 @@ class DirectionController(Node):
             twist.linear.x = 0.0  # 🚫 niet vooruit
             error = avg_angle - 90.0
 
-            if (-1 > error < 1):
-                twist.linear.x = 0.1  # 🚶‍♂️ vooruit als bijna recht
-
             if abs(error) < 1.0:
                 twist.angular.z = 0.0
             else:
