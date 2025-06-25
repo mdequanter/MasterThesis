@@ -148,20 +148,22 @@ def main():
     else:
         print("✅ Robot is NIET gedockt. Geen undock nodig.")
 
-    # Start direction controller node
+# ✅ Start ROS2 node en asyncio WebSocket loop
     controller = DirectionController()
 
-    # Run asyncio + ROS 2 node
     loop = asyncio.get_event_loop()
-    loop.create_task(receive_direction(controller))
+    loop.create_task(receive_direction(controller))  # async direction handler
+
     try:
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
+            loop.run_until_complete(asyncio.sleep(0.01))  # laat asyncio ook draaien
     except KeyboardInterrupt:
         print("⏹️ Afgesloten door gebruiker")
     finally:
         controller.destroy_node()
         rclpy.shutdown()
 
+        
 if __name__ == "__main__":
     main()
