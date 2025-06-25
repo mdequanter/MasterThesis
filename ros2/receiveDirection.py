@@ -113,7 +113,7 @@ class DirectionController(Node):
                 proportion = error / 90.0
                 twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
                 
-            if (avg_angle <= 90.01 and avg_angle >=90.00):  # er is geen detectie
+            if (round(avg_angle,2) == 90.00):  # er is geen detectie
                 twist.angular.z = 0.1
                 twist.linear.x = 0.0  # 🚫 niet vooruit
 
