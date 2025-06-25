@@ -9,7 +9,7 @@ CAMERA_INDEX = 0
 FPS = 30
 FRAME_SIZE = (640, 480)
 OUTPUT_PATH = 'recording/video_output.avi'
-SNAPSHOT_DIR = 'recording'
+SNAPSHOT_DIR = 'train/recording'
 
 # ✅ Command-line argumenten verwerken
 for arg in sys.argv[1:]:
