@@ -16,10 +16,18 @@ import numpy as np
 import time
 import os
 from datetime import datetime
+import sys
+
+VIDEO_TOPIC = '/camera/image/compressed'  # Change this to your camera topic
+
+for arg in sys.argv[1:]:
+    if arg.startswith("VIDEO_TOPIC="):
+        VIDEO_TOPIC = arg.split("=")[1]
 
 class ROS2VideoRecorder(Node):
     def __init__(self):
         super().__init__('ros2_video_recorder')
+        global VIDEO_TOPIC
 
         self.fps = 30
         self.frame_size = (640, 480)
@@ -34,7 +42,7 @@ class ROS2VideoRecorder(Node):
 
         self.subscription = self.create_subscription(
             CompressedImage,
-            '/camera/image_raw/compressed',
+            VIDEO_TOPIC,
             self.image_callback,
             10
         )
