@@ -100,7 +100,7 @@ class DirectionController(Node):
             self.buffer.clear()
 
             twist = Twist()
-            twist.linear.x = 0.1  # 🚫 niet vooruit
+            twist.linear.x = 0.0  # 🚫 niet vooruit
             error = avg_angle - 90.0
 
             twist.linear.x = 0.0
@@ -114,7 +114,7 @@ class DirectionController(Node):
                 twist.angular.z = 0.1
                 twist.linear.x = 0.0 # 🚫 niet vooruit
             else:
-                twist.linear.x = 0.1  # 🚫 niet vooruit
+                twist.linear.x = 0.0  # 🚫 niet vooruit
 
 
 
@@ -130,7 +130,7 @@ async def receive_direction(controller: DirectionController):
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
-                if "direction_angle" in data:
+                if "direction_angle" in data and data["detected"] == True:
                     controller.add_direction(data["direction_angle"])
                 controller.process()
             except websockets.exceptions.ConnectionClosed:

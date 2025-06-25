@@ -121,7 +121,11 @@ async def receive_messages():
                     # Beperk naar -90 tot 90 graden
                     direction_angle = angle_deg
                     # Stuur richting naar de server
-                await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "frame_id": frame_id}))
+                    detected = True
+                else :
+                    detected = False
+                    direction_angle = 90  # Geen detectie, standaard naar voren
+                await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2),"detected": detected "frame_id": frame_id}))
 
                 current_time = time.time()
                 frame_times.append(current_time)
