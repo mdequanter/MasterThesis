@@ -104,6 +104,10 @@ class DirectionController(Node):
             error = avg_angle - 90.0
 
 
+            if (abs(error) == 0.00):  # er is geen detectie
+                twist.angular.z = 0.1
+                twist.linear.x = 0.0  # 🚫 niet vooruit
+
             if abs(error) < 1.0:
                 twist.angular.z = 0.0
                 twist.linear.x = 0.2  # 🚫 niet vooruit
