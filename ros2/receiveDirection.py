@@ -126,7 +126,7 @@ async def receive_direction(controller: DirectionController):
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
-                if "direction_angle" in data and data["detected"] == True:
+                if "direction_angle" in data:
                     controller.add_direction(data["direction_angle"])
                 controller.process()
                 if ("detected" in data and data["detected"] == False):
