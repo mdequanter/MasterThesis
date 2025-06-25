@@ -116,7 +116,7 @@ class DirectionController(Node):
             if detected == True :  # er is geen detectie
                 self.publisher.publish(twist)
                 
-                print(f"➡️ x: {twist.lineear.x:.2f} ,  z = {twist.angular.z:.2f}")
+                print(f"➡️ x: {twist.linear.x:.2f} ,  z = {twist.angular.z:.2f}")
 
             self.last_publish_time = now
 
