@@ -112,7 +112,7 @@ class DirectionController(Node):
                 twist.angular.z = 0.0
                 twist.linear.x = 0.2  # 🚫 niet vooruit
             else:
-                twist.linear.x = 0.1
+                twist.linear.x = 0.05
                 proportion = error / 90.0
                 twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
                 
