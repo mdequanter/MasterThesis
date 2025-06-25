@@ -14,7 +14,7 @@ import time
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 5
-MAX_ANGULAR = 2.0
+MAX_ANGULAR = 5.0
 
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
@@ -106,8 +106,9 @@ class DirectionController(Node):
 
             if abs(error) < 1.0:
                 twist.angular.z = 0.0
-                #twist.linear.x = 0.0  # 🚫 niet vooruit
+                twist.linear.x = 0.2  # 🚫 niet vooruit
             else:
+                twist.linear.x = 0.1
                 proportion = error / 90.0
                 twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
                 
