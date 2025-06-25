@@ -17,7 +17,7 @@ screenOutput = True
 minSegmentSize = 5000  # Minimale grootte (in pixels) van het segment voor het tekenen van een pijl
 MODEL = 'unrealsim/models/blindnavUnreal.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"  # Signaling server URL
-
+DETECTION_CONFIDENCE = 0.9  # Minimum confidence for detection
 frame_times = deque(maxlen=100)
 
 # ✅ Commandline parsing
@@ -57,6 +57,7 @@ def decrypt_data(encrypted_base64):
     return decrypted_bytes
 
 async def receive_messages():
+    global DETECTION_CONFIDENCE
     quality = 50
     async with websockets.connect(SIGNALING_SERVER) as websocket:
         print(f"✅ Verbonden met Signaling Server: {SIGNALING_SERVER}")
@@ -80,7 +81,7 @@ async def receive_messages():
                     continue
 
                 start_inference = time.time()
-                results = model(frame, conf=0.8, verbose=False)
+                results = model(frame, conf=DETECTION_CONFIDENCE, verbose=False)
                 end_inference = time.time()
                 inference_time = (end_inference - start_inference) * 1000
 
