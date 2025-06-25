@@ -121,6 +121,7 @@ class DirectionController(Node):
             self.last_publish_time = now
 
 async def receive_direction(controller: DirectionController):
+    global detected
     print(f"📡 Verbinden met: {SIGNALING_SERVER}")
     async with websockets.connect(SIGNALING_SERVER) as websocket:
         print(f"✅ Verbonden met {SIGNALING_SERVER}")
@@ -131,7 +132,11 @@ async def receive_direction(controller: DirectionController):
                 if "direction_angle" in data:
                     controller.add_direction(data["direction_angle"])
                 controller.process()
-                if ("detected" in data and data["detected"] == False):
+                if ("detected" in data):
+                    if data["detected"] == False:
+                        detected = False
+                    else:   
+                        detected = True
                     print("❗ Geen PATH gedetecteerd")
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
