@@ -117,6 +117,9 @@ class DirectionController(Node):
                 self.publisher.publish(twist)
                 
                 print(f"➡️ x: {twist.linear.x:.2f} ,  z = {twist.angular.z:.2f}")
+            else:
+                print("❗ Geen PATH gedetecteerd, geen beweging gestuurd.")
+                twist.angular.z = 0.0
 
             self.last_publish_time = now
 
