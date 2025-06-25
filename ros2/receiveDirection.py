@@ -12,11 +12,16 @@ from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
 import time
 
+# 🔧 Instellingen
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 5
 MAX_ANGULAR = 50.0
+NO_DETECTION_ANGLE = 90.0
+NO_DETECTION_ROTATE_SPEED = 0.6
+ANGLE_TOLERANCE = 3.0
+STOP_IF_NO_DETECTION = True
 
-# ✅ Parse CLI arguments
+# ✅ Commandline parsing
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
@@ -89,35 +94,36 @@ class DirectionController(Node):
         self.last_publish_time = time.time()
 
     def add_direction(self, angle):
-        self.buffer.append(angle)
+        if round(angle, 2) != NO_DETECTION_ANGLE:  # 🔍 Filter foutieve detecties
+            self.buffer.append(angle)
 
-def process(self):
-    now = time.time()
-    if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
-        if not self.buffer:
-            return
+    def process(self):
+        now = time.time()
+        if now - self.last_publish_time >= 1.0 / COMMAND_RATE:
+            if not self.buffer:
+                return
 
-        avg_angle = sum(self.buffer) / len(self.buffer)
-        self.buffer.clear()
+            avg_angle = sum(self.buffer) / len(self.buffer)
+            self.buffer.clear()
+            error = avg_angle - 90.0
+            twist = Twist()
 
-        error = avg_angle - 90.0  # 90 = midden
-        twist = Twist()
+            # 🔁 Geen detectie
+            if STOP_IF_NO_DETECTION and round(avg_angle, 2) == NO_DETECTION_ANGLE:
+                twist.linear.x = 0.0
+                twist.angular.z = NO_DETECTION_ROTATE_SPEED
+            # ✅ Correct uitgelijnd
+            elif abs(error) < ANGLE_TOLERANCE:
+                twist.linear.x = 0.2
+                twist.angular.z = 0.0
+            else:
+                proportion = error / 90.0
+                twist.linear.x = max(0.05, 0.2 - abs(proportion) * 0.1)
+                twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)) * 0.015
 
-        if abs(error) < 3.0:  # kleinere drempel
-            twist.linear.x = 0.2
-            twist.angular.z = 0.0
-        elif round(avg_angle, 2) == 90.00:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.6  # iets meer draaien bij geen detectie
-        else:
-            # Proportioneel sturen
-            proportion = error / 90.0
-            twist.linear.x = max(0.05, 0.2 - abs(proportion) * 0.1)  # trager bij grotere fout
-            twist.angular.z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)) * 0.015  # schaal kleiner
-
-        self.publisher.publish(twist)
-        print(f"➡️ Richting: {avg_angle:.2f}° | error={error:.2f} | angular.z={twist.angular.z:.2f}")
-        self.last_publish_time = now
+            self.publisher.publish(twist)
+            print(f"➡️ Richting: {avg_angle:.2f}° | error={error:.2f} | linear.x={twist.linear.x:.2f} | angular.z={twist.angular.z:.2f}")
+            self.last_publish_time = now
 
 async def receive_direction(controller: DirectionController):
     print(f"📡 Verbinden met: {SIGNALING_SERVER}")
@@ -154,22 +160,20 @@ def main():
     else:
         print("✅ Robot is NIET gedockt. Geen undock nodig.")
 
-# ✅ Start ROS2 node en asyncio WebSocket loop
     controller = DirectionController()
 
     loop = asyncio.get_event_loop()
-    loop.create_task(receive_direction(controller))  # async direction handler
+    loop.create_task(receive_direction(controller))
 
     try:
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
-            loop.run_until_complete(asyncio.sleep(0.01))  # laat asyncio ook draaien
+            loop.run_until_complete(asyncio.sleep(0.01))
     except KeyboardInterrupt:
         print("⏹️ Afgesloten door gebruiker")
     finally:
         controller.destroy_node()
         rclpy.shutdown()
 
-        
 if __name__ == "__main__":
     main()
