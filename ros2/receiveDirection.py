@@ -8,12 +8,20 @@ from rclpy.action import ActionClient
 from rclpy.qos import qos_profile_sensor_data
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
+import time
 
-# ✅ Signaling server (enkel overschrijfbaar via cmd)
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
+COMMAND_RATE = 5  # keer per seconde een gemiddelde printen
+
+# ✅ Commandline parameters verwerken
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
+    elif arg.startswith("COMMAND_RATE="):
+        try:
+            COMMAND_RATE = float(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige COMMAND_RATE, standaard blijft:", COMMAND_RATE)
 
 class DockChecker(Node):
     def __init__(self):
@@ -32,7 +40,6 @@ class DockChecker(Node):
         self.received = True
 
     def is_docked(self, timeout_sec=3.0):
-        """Wacht maximaal timeout_sec seconden op /dock_status en retourneert True of False"""
         start_time = self.get_clock().now()
         while not self.received:
             rclpy.spin_once(self, timeout_sec=0.1)
@@ -67,14 +74,29 @@ class Undocker(Node):
         return True
 
 async def receive_direction():
+    print(f"📡 Luisteren op: {SIGNALING_SERVER}")
+    direction_buffer = []
+    last_print_time = time.time()
+
     async with websockets.connect(SIGNALING_SERVER) as websocket:
         print(f"✅ Verbonden met {SIGNALING_SERVER}")
         while True:
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
+
                 if "direction_angle" in data:
-                    print(f"➡️ Direction angle: {data['direction_angle']}°")
+                    direction = data["direction_angle"]
+                    direction_buffer.append(direction)
+
+                current_time = time.time()
+                if current_time - last_print_time >= 1.0 / COMMAND_RATE:
+                    if direction_buffer:
+                        avg = sum(direction_buffer) / len(direction_buffer)
+                        print(f"➡️ Gemiddelde richting (laatste {len(direction_buffer)}): {avg:.2f}°")
+                        direction_buffer.clear()
+                    last_print_time = current_time
+
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
                 break
@@ -84,7 +106,6 @@ async def receive_direction():
 def main():
     rclpy.init()
 
-    # ✅ Check of robot gedockt is
     checker = DockChecker()
     is_docked = checker.is_docked()
     checker.destroy_node()
@@ -102,7 +123,6 @@ def main():
 
     rclpy.shutdown()
 
-    # ✅ Start WebSocket communicatie
     try:
         asyncio.run(receive_direction())
     except KeyboardInterrupt:
