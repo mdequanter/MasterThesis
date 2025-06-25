@@ -13,7 +13,7 @@ from irobot_create_msgs.msg import DockStatus
 import time
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
-COMMAND_RATE = 5
+COMMAND_RATE = 2
 MAX_ANGULAR = 10.0  # Max angular speed in rad/s
 
 # ✅ Parse CLI arguments
