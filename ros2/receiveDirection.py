@@ -109,11 +109,13 @@ class DirectionController(Node):
 
             twist.linear.x = 0.0
             proportion = error / 90.0
-            twist.angular.z = (max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)))*1.
+            twist.angular.z = (max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR)))*1.00
             
+            print (f"➡️ x: {twist.linear.x:.2f} ,  z = {twist.angular.z:.2f} , detected = {detected}")
 
             if detected == True :  # er is geen detectie
                 self.publisher.publish(twist)
+                
                 print(f"➡️ x: {twist.lineear.x:.2f} ,  z = {twist.angular.z:.2f}")
 
             self.last_publish_time = now
