@@ -82,6 +82,7 @@ class ROS2VideoRecorder(Node):
             self.get_logger().warn("Received empty frame.")
             return
 
+        print (f"Received frame of size: {frame.shape}" )
         frame = cv2.resize(frame, self.frame_size)
         self.current_frame = frame  # Update current frame for snapshot
 
