@@ -5,13 +5,41 @@ import websockets
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+from rclpy.qos import qos_profile_sensor_data
 from irobot_create_msgs.action import Undock
+from irobot_create_msgs.msg import DockStatus
 
-# ✅ Standaard Signaling Server (wordt enkel overschreven indien expliciet opgegeven)
+# ✅ Signaling server (enkel overschrijfbaar via cmd)
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
+
+class DockChecker(Node):
+    def __init__(self):
+        super().__init__('dock_checker')
+        self.dock_status = None
+        self.sub = self.create_subscription(
+            DockStatus,
+            '/dock_status',
+            self.callback,
+            qos_profile_sensor_data
+        )
+        self.received = False
+
+    def callback(self, msg):
+        self.dock_status = msg
+        self.received = True
+
+    def is_docked(self, timeout_sec=3.0):
+        """Wacht maximaal timeout_sec seconden op /dock_status en retourneert True of False"""
+        start_time = self.get_clock().now()
+        while not self.received:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if (self.get_clock().now() - start_time).nanoseconds / 1e9 > timeout_sec:
+                self.get_logger().warn("⚠️ Geen /dock_status ontvangen binnen timeout.")
+                return False
+        return self.dock_status.is_docked
 
 class Undocker(Node):
     def __init__(self):
@@ -29,10 +57,10 @@ class Undocker(Node):
         goal_handle = self._send_future.result()
 
         if not goal_handle.accepted:
-            self.get_logger().error('❌ Undock goal werd geweigerd.')
+            self.get_logger().error('❌ Undock goal geweigerd.')
             return False
 
-        self.get_logger().info('✅ Undock goal werd geaccepteerd.')
+        self.get_logger().info('✅ Undock goal geaccepteerd.')
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
         self.get_logger().info('✅ Undock voltooid.')
@@ -55,16 +83,30 @@ async def receive_direction():
 
 def main():
     rclpy.init()
-    undocker = Undocker()
-    success = undocker.send_undock()
-    undocker.destroy_node()
+
+    # ✅ Check of robot gedockt is
+    checker = DockChecker()
+    is_docked = checker.is_docked()
+    checker.destroy_node()
+
+    if is_docked:
+        print("📦 Robot is gedockt, probeer te undocken...")
+        undocker = Undocker()
+        success = undocker.send_undock()
+        undocker.destroy_node()
+        if not success:
+            rclpy.shutdown()
+            return
+    else:
+        print("✅ Robot is NIET gedockt. Geen undock nodig.")
+
     rclpy.shutdown()
 
-    if success:
-        try:
-            asyncio.run(receive_direction())
-        except KeyboardInterrupt:
-            print("⏹️ Afgesloten door gebruiker")
+    # ✅ Start WebSocket communicatie
+    try:
+        asyncio.run(receive_direction())
+    except KeyboardInterrupt:
+        print("⏹️ Afgesloten door gebruiker")
 
 if __name__ == "__main__":
     main()
