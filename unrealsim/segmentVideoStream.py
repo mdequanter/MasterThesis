@@ -80,7 +80,7 @@ async def receive_messages():
                     continue
 
                 start_inference = time.time()
-                results = model(frame, conf=0.1, verbose=False)
+                results = model(frame, conf=0.8, verbose=False)
                 end_inference = time.time()
                 inference_time = (end_inference - start_inference) * 1000
 
