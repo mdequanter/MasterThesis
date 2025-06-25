@@ -114,8 +114,7 @@ class DirectionController(Node):
             print (f"➡️ x: {twist.linear.x:.2f} ,  z = {twist.angular.z:.2f} , detected = {detected}")
 
             if detected == True :  # er is geen detectie
-                self.publisher.publish(twist)
-                
+                self.publisher.publish(twist)    
                 print(f"➡️ x: {twist.linear.x:.2f} ,  z = {twist.angular.z:.2f}")
             else:
                 print("❗ Geen PATH gedetecteerd, geen beweging gestuurd.")
@@ -140,7 +139,7 @@ async def receive_direction(controller: DirectionController):
                         detected = False
                     else:   
                         detected = True
-                    print("❗ Geen PATH gedetecteerd")
+                    
             except websockets.exceptions.ConnectionClosed:
                 print("❌ Verbinding verbroken")
                 break
