@@ -17,6 +17,7 @@ import threading
 import tty
 import termios
 import select
+import queue  # ✅ toegevoegd
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
@@ -26,6 +27,8 @@ linear_speed = 0.0
 angular_speed = 0.0
 align_with_arrow = False
 latest_direction_angle = 90.0  # Default richting vooruit
+
+command_queue = queue.Queue()  # ✅ queue voor commando's uit keyboard thread
 
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
@@ -42,12 +45,11 @@ for arg in sys.argv[1:]:
         except ValueError:
             print("⚠️ Ongeldige MAX_ANGULAR waarde, standaard blijft:", MAX_ANGULAR)
 
-
 class DockChecker(Node):
     def __init__(self):
         super().__init__('dock_checker')
         self.dock_status = None
-        self.future = Future()
+        self.received = False
         self.sub = self.create_subscription(
             DockStatus,
             '/dock_status',
@@ -79,9 +81,9 @@ class Undocker(Node):
             return False
 
         goal_msg = Undock.Goal()
-        self._send_future = self._client.send_goal_async(goal_msg)
-        rclpy.spin_until_future_complete(self, self._send_future)
-        goal_handle = self._send_future.result()
+        send_future = self._client.send_goal_async(goal_msg)
+        rclpy.spin_until_future_complete(self, send_future)
+        goal_handle = send_future.result()
 
         if not goal_handle.accepted:
             self.get_logger().error('❌ Undock goal geweigerd.')
@@ -131,7 +133,7 @@ def get_key():
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     try:
-        tty.setraw(sys.stdin.fileno())
+        tty.setraw(fd)
         [i, _, _] = select.select([sys.stdin], [], [], 0.1)
         if i:
             key = sys.stdin.read(1)
@@ -141,7 +143,7 @@ def get_key():
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return key
 
-def keyboard_loop(controller: DirectionController):
+def keyboard_loop():
     global linear_speed, angular_speed, align_with_arrow
 
     while True:
@@ -159,23 +161,9 @@ def keyboard_loop(controller: DirectionController):
             elif key == 'e':
                 angular_speed -= 0.1
             elif key == 'd':
-                checker = DockChecker()
-                is_docked = checker.is_docked()
-                checker.destroy_node()
-                if is_docked:
-                    undocker = Undocker()
-                    undocker.send_undock()
-                    undocker.destroy_node()
-                else:
-                    print("🛑 Reeds ontkoppeld.")
+                command_queue.put('undock')  # ✅ Zet undock in de queue
             elif key == 'c':
                 align_with_arrow = True
-
-        if align_with_arrow:
-            controller.align_to_direction(latest_direction_angle)
-            align_with_arrow = False
-        else:
-            controller.publish_manual_control(linear_speed, angular_speed)
         time.sleep(0.1)
 
 def main():
@@ -184,12 +172,36 @@ def main():
     loop = asyncio.get_event_loop()
     loop.create_task(receive_direction(controller))
 
-    t = threading.Thread(target=keyboard_loop, args=(controller,), daemon=True)
+    t = threading.Thread(target=keyboard_loop, daemon=True)
     t.start()
 
     try:
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
+
+            # ⏱️ Check op input vanuit keyboard
+            if align_with_arrow:
+                controller.align_to_direction(latest_direction_angle)
+                align_with_arrow = False
+            else:
+                controller.publish_manual_control(linear_speed, angular_speed)
+
+            # ✅ Verwerk commandos uit de keyboard queue
+            try:
+                cmd = command_queue.get_nowait()
+                if cmd == 'undock':
+                    checker = DockChecker()
+                    is_docked = checker.is_docked()
+                    checker.destroy_node()
+                    if is_docked:
+                        undocker = Undocker()
+                        undocker.send_undock()
+                        undocker.destroy_node()
+                    else:
+                        print("🛑 Reeds ontkoppeld.")
+            except queue.Empty:
+                pass
+
             loop.run_until_complete(asyncio.sleep(0.01))
     except KeyboardInterrupt:
         print("⏹️ Afgesloten door gebruiker")
