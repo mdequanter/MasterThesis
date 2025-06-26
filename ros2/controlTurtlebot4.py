@@ -108,7 +108,7 @@ class DirectionController(Node):
         twist.linear.x = linear_x
         twist.angular.z = angular_z
         self.publisher.publish(twist)
-        print(f"🕹️ Published manual control: linear.x = {linear_x:.2f}, angular.z = {angular_z:.2f}")
+        #print(f"🕹️ Published manual control: linear.x = {linear_x:.2f}, angular.z = {angular_z:.2f}")
 
     def align_to_direction(self, angle):
         error = angle - 90.0
