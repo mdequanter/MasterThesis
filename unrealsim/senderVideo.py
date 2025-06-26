@@ -20,12 +20,12 @@ USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
 MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
-ANALYTICS = True  # 🔑 Analytics aan of uit
+ANALYTICS = False  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
 WIDTH = 800
 HEIGHT = 400
 FULLSCREEN = False  
-
+PATH_DETECTED = False  # Global variable to track if a path is detected
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -157,6 +157,10 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"FPS: {fps:.2f}", (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"path detected: {PATH_DETECTED}", (10, 120),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
+
 
         cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -219,7 +223,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED
     while not should_exit:
         try:
             message = await websocket.recv()
@@ -229,6 +233,8 @@ async def receive_messages(websocket):
                 print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
+            if 'detected' in message_json:
+                PATH_DETECTED = message_json['detected']
             if 'frame_id' in message_json:
                 FRAME_ID = message_json['frame_id']
                 received = time.time()
