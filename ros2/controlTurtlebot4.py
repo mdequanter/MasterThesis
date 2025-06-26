@@ -124,6 +124,13 @@ async def receive_direction(controller: DirectionController):
                 data = json.loads(message)
                 if "direction_angle" in data:
                     latest_direction_angle = data["direction_angle"]
+                if "detected" in data:
+                    detected = data["detected"]
+                    if detected == False:
+                        print("🚫 Geen detectie, robot stopt.")
+                        controller.publish_manual_control(0.0, 0.0)
+                        align_with_arrow = False  # ✅ Stop alignen als er geen detectie is
+
             except Exception as e:
                 print(f"⚠️ Fout bij verwerken bericht: {e}")
                 break
