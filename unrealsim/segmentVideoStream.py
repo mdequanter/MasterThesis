@@ -16,9 +16,9 @@ from ultralytics import YOLO
 screenOutput = True
 MODEL = 'unrealsim/models/blindnavUnreal.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
-DETECTION_CONFIDENCE = 0.9
+DETECTION_CONFIDENCE = 0.85
 frame_times = deque(maxlen=100)
-SCAN_HEIGHTS = [0.3, 0.5, 0.7]  # procentuele scanlijnen
+SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -87,10 +87,17 @@ async def receive_messages():
                     if result.masks is not None:
                         mask = result.masks.data[0].cpu().numpy()
                         mask = (mask * 255).astype(np.uint8)
-                        overlay[mask > 0] = cv2.addWeighted(frame, 0.3, np.full_like(frame, (0, 255, 0)), 0.7, 0)[mask > 0]
+
+                        mask_resized = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
+                        green_overlay = np.full_like(frame, (0, 255, 0))
+                        blended = cv2.addWeighted(frame, 0.3, green_overlay, 0.7, 0)
+                        overlay[mask_resized > 0] = blended[mask_resized > 0]
+
                         for r in SCAN_HEIGHTS:
                             y = int(height * r)
-                            scan_row = mask[y, :]
+                            if y >= height:
+                                continue
+                            scan_row = mask_resized[y, :]
                             indices = np.where(scan_row > 0)[0]
                             if len(indices) > 0:
                                 midpoint_x = int(np.mean(indices))
