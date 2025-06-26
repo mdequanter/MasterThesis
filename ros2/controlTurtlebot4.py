@@ -75,7 +75,7 @@ class DockChecker(Node):
 class Undocker(Node):
     def __init__(self):
         super().__init__('undock_client')
-        self._client = ActionClient(self, Undock, '/Dock')
+        self._client = ActionClient(self, Undock, '/undock')
 
     def send_undock(self):
         if not self._client.wait_for_server(timeout_sec=5.0):
