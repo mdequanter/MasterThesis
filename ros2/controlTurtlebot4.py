@@ -30,6 +30,8 @@ latest_direction_angle = 90.0  # Default richting vooruit
 
 command_queue = queue.Queue()  # ✅ queue voor commando's uit keyboard thread
 
+align_with_arrow = False  # ✅ Variabele om te controleren of we moeten uitlijnen met de pijl
+
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
@@ -167,6 +169,7 @@ def keyboard_loop():
         time.sleep(0.1)
 
 def main():
+    global align_with_arrow
     rclpy.init()
     controller = DirectionController()
     loop = asyncio.get_event_loop()
