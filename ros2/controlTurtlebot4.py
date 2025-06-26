@@ -30,8 +30,6 @@ latest_direction_angle = 90.0  # Default richting vooruit
 
 command_queue = queue.Queue()  # ✅ queue voor commando's uit keyboard thread
 
-align_with_arrow = False  # ✅ Variabele om te controleren of we moeten uitlijnen met de pijl
-
 # ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
@@ -108,7 +106,6 @@ class DirectionController(Node):
         twist.linear.x = linear_x
         twist.angular.z = angular_z
         self.publisher.publish(twist)
-        #print(f"🕹️ Published manual control: linear.x = {linear_x:.2f}, angular.z = {angular_z:.2f}")
 
     def align_to_direction(self, angle):
         error = angle - 90.0
@@ -165,7 +162,8 @@ def keyboard_loop():
             elif key == 'd':
                 command_queue.put('undock')  # ✅ Zet undock in de queue
             elif key == 'c':
-                align_with_arrow = True
+                align_with_arrow = not align_with_arrow
+                print(f"🔄 Align with arrow {'ingeschakeld' if align_with_arrow else 'uitgeschakeld'}")
         time.sleep(0.1)
 
 def main():
@@ -182,14 +180,11 @@ def main():
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
 
-            # ⏱️ Check op input vanuit keyboard
             if align_with_arrow:
                 controller.align_to_direction(latest_direction_angle)
-                align_with_arrow = False
             else:
                 controller.publish_manual_control(linear_speed, angular_speed)
 
-            # ✅ Verwerk commandos uit de keyboard queue
             try:
                 cmd = command_queue.get_nowait()
                 if cmd == 'undock':
