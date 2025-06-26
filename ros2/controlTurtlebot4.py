@@ -12,15 +12,13 @@ from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
 import time
 import threading
-import cv2
+import tty
+import termios
+import select
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
 MAX_ANGULAR = 10.0  # Max angular speed in rad/s
-
-screenOutput = True
-fullscreen = False
-CAMERA_INDEX = 0
 
 linear_speed = 0.0
 angular_speed = 0.0
@@ -126,62 +124,56 @@ async def receive_direction(controller: DirectionController):
                 print(f"⚠️ Fout bij verwerken bericht: {e}")
                 break
 
-def keyboard_loop(controller: DirectionController):
-    global linear_speed, angular_speed, screenOutput, fullscreen, align_with_arrow
-    cap = None
+def get_key():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        [i, _, _] = select.select([sys.stdin], [], [], 0.1)
+        if i:
+            key = sys.stdin.read(1)
+        else:
+            key = None
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return key
 
-    if screenOutput:
-        cap = cv2.VideoCapture(CAMERA_INDEX)
-        if fullscreen:
-            cv2.namedWindow("Camera", cv2.WND_PROP_FULLSCREEN)
-            cv2.setWindowProperty("Camera", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+def keyboard_loop(controller: DirectionController):
+    global linear_speed, angular_speed, align_with_arrow
 
     while True:
-        key = input("Toets (z/s/w/q/e/d/v/f/a): ").strip().lower()
-        if key == 'z':
-            linear_speed += 0.05
-        elif key == 'w':
-            linear_speed -= 0.05
-        elif key == 's':
-            linear_speed = 0.0
-            angular_speed = 0.0
-        elif key == 'q':
-            angular_speed += 0.1
-        elif key == 'e':
-            angular_speed -= 0.1
-        elif key == 'd':
-            checker = DockChecker()
-            is_docked = checker.is_docked()
-            checker.destroy_node()
-            if is_docked:
-                undocker = Undocker()
-                undocker.send_undock()
-                undocker.destroy_node()
-            else:
-                print("🛑 Reeds ontkoppeld.")
-        elif key == 'v':
-            screenOutput = not screenOutput
-            if not screenOutput and cap:
-                cap.release()
-                cv2.destroyAllWindows()
-        elif key == 'f':
-            fullscreen = not fullscreen
-            if screenOutput:
-                cv2.setWindowProperty("Camera", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN if fullscreen else cv2.WINDOW_NORMAL)
-        elif key == 'a':
-            align_with_arrow = True
+        key = get_key()
+        if key:
+            if key == 'z':
+                linear_speed += 0.05
+            elif key == 'w':
+                linear_speed -= 0.05
+            elif key == 's':
+                linear_speed = 0.0
+                angular_speed = 0.0
+            elif key == 'q':
+                angular_speed += 0.1
+            elif key == 'e':
+                angular_speed -= 0.1
+            elif key == 'd':
+                checker = DockChecker()
+                is_docked = checker.is_docked()
+                checker.destroy_node()
+                if is_docked:
+                    undocker = Undocker()
+                    undocker.send_undock()
+                    undocker.destroy_node()
+                else:
+                    print("🛑 Reeds ontkoppeld.")
+            elif key == 'a':
+                align_with_arrow = True
+
         if align_with_arrow:
             controller.align_to_direction(latest_direction_angle)
             align_with_arrow = False
         else:
             controller.publish_manual_control(linear_speed, angular_speed)
-
-        if screenOutput and cap:
-            ret, frame = cap.read()
-            if ret:
-                cv2.imshow("Camera", frame)
-                cv2.waitKey(1)
-
+        time.sleep(0.1)
 
 def main():
     rclpy.init()
