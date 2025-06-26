@@ -10,6 +10,8 @@ from rclpy.publisher import Publisher
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
+from rclpy.task import Future
+
 import time
 import threading
 import tty
@@ -40,30 +42,32 @@ for arg in sys.argv[1:]:
         except ValueError:
             print("⚠️ Ongeldige MAX_ANGULAR waarde, standaard blijft:", MAX_ANGULAR)
 
+
 class DockChecker(Node):
     def __init__(self):
         super().__init__('dock_checker')
         self.dock_status = None
+        self.future = Future()
         self.sub = self.create_subscription(
             DockStatus,
             '/dock_status',
             self.callback,
             qos_profile_sensor_data
         )
-        self.received = False
 
     def callback(self, msg):
         self.dock_status = msg
-        self.received = True
+        if not self.future.done():
+            self.future.set_result(True)
 
     def is_docked(self, timeout_sec=3.0):
-        start_time = self.get_clock().now()
-        while not self.received:
-            rclpy.spin_once(self, timeout_sec=0.1)
-            if (self.get_clock().now() - start_time).nanoseconds / 1e9 > timeout_sec:
-                self.get_logger().warn("⚠️ Geen /dock_status ontvangen binnen timeout.")
-                return False
-        return self.dock_status.is_docked
+        if rclpy.ok():
+            rclpy.spin_until_future_complete(self, self.future, timeout_sec=timeout_sec)
+        if self.dock_status:
+            return self.dock_status.is_docked
+        else:
+            self.get_logger().warn("⚠️ Geen /dock_status ontvangen binnen timeout.")
+            return False
 
 class Undocker(Node):
     def __init__(self):
