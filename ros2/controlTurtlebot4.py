@@ -145,9 +145,9 @@ def keyboard_loop(controller: DirectionController):
         key = get_key()
         if key:
             if key == 'z':
-                linear_speed += 0.05
+                linear_speed += 0.1
             elif key == 'w':
-                linear_speed -= 0.05
+                linear_speed -= 0.1
             elif key == 's':
                 linear_speed = 0.0
                 angular_speed = 0.0
