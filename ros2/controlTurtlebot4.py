@@ -57,8 +57,7 @@ class DockChecker(Node):
 
     def callback(self, msg):
         self.dock_status = msg
-        if not self.future.done():
-            self.future.set_result(True)
+        self.received = True
 
     def is_docked(self, timeout_sec=3.0):
         start_time = self.get_clock().now()
