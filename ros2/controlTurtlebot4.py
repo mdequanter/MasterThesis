@@ -19,9 +19,11 @@ import termios
 import select
 import queue  # ✅ toegevoegd
 
+# ✅ Standaardinstellingen
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
 MAX_ANGULAR = 3.0  # Max angular speed in rad/s
+NO_DETECTION_TIMEOUT = 0.5  # seconden, instelbaar
 
 linear_speed = 0.0
 angular_speed = 0.0
@@ -44,6 +46,11 @@ for arg in sys.argv[1:]:
             MAX_ANGULAR = float(arg.split("=")[1])
         except ValueError:
             print("⚠️ Ongeldige MAX_ANGULAR waarde, standaard blijft:", MAX_ANGULAR)
+    elif arg.startswith("NO_DETECTION_TIMEOUT="):
+        try:
+            NO_DETECTION_TIMEOUT = float(arg.split("=")[1])
+        except ValueError:
+            print("⚠️ Ongeldige NO_DETECTION_TIMEOUT waarde, standaard blijft:", NO_DETECTION_TIMEOUT)
 
 class DockChecker(Node):
     def __init__(self):
@@ -107,14 +114,16 @@ class DirectionController(Node):
         twist.angular.z = angular_z
         self.publisher.publish(twist)
 
-    def align_to_direction(self,linear_x, angle):
+    def align_to_direction(self, linear_x, angle):
         error = angle - 90.0
         proportion = error / 90.0
         angular_z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
         self.publish_manual_control(linear_x, angular_z)
 
 async def receive_direction(controller: DirectionController):
-    global latest_direction_angle
+    global latest_direction_angle, align_with_arrow
+
+    last_detection_time = time.time()
     print(f"📡 Verbinden met: {SIGNALING_SERVER}")
     async with websockets.connect(SIGNALING_SERVER) as websocket:
         print(f"✅ Verbonden met {SIGNALING_SERVER}")
@@ -122,14 +131,21 @@ async def receive_direction(controller: DirectionController):
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
+
                 if "direction_angle" in data:
                     latest_direction_angle = data["direction_angle"]
+
                 if "detected" in data:
                     detected = data["detected"]
-                    if detected == False:
-                        print("🚫 Geen detectie, robot stopt.")
-                        controller.publish_manual_control(0.0, 0.0)
-                        align_with_arrow = False  # ✅ Stop alignen als er geen detectie is
+                    current_time = time.time()
+
+                    if detected:
+                        last_detection_time = current_time
+                    else:
+                        if align_with_arrow and (current_time - last_detection_time > NO_DETECTION_TIMEOUT):
+                            print(f"🚫 Geen detectie > {NO_DETECTION_TIMEOUT}s → Stop robot.")
+                            controller.publish_manual_control(0.0, 0.0)
+                            align_with_arrow = False
 
             except Exception as e:
                 print(f"⚠️ Fout bij verwerken bericht: {e}")
@@ -188,7 +204,7 @@ def main():
             rclpy.spin_once(controller, timeout_sec=0.1)
 
             if align_with_arrow:
-                controller.align_to_direction(linear_speed,latest_direction_angle)
+                controller.align_to_direction(linear_speed, latest_direction_angle)
             else:
                 controller.publish_manual_control(linear_speed, angular_speed)
 
