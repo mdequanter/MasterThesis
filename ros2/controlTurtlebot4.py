@@ -107,11 +107,11 @@ class DirectionController(Node):
         twist.angular.z = angular_z
         self.publisher.publish(twist)
 
-    def align_to_direction(self, angle):
+    def align_to_direction(self,linear_x, angle):
         error = angle - 90.0
         proportion = error / 90.0
         angular_z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
-        self.publish_manual_control(0.0, angular_z)
+        self.publish_manual_control(linear_x, angular_z)
 
 async def receive_direction(controller: DirectionController):
     global latest_direction_angle
@@ -181,7 +181,7 @@ def main():
             rclpy.spin_once(controller, timeout_sec=0.1)
 
             if align_with_arrow:
-                controller.align_to_direction(latest_direction_angle)
+                controller.align_to_direction(linear_speed,latest_direction_angle)
             else:
                 controller.publish_manual_control(linear_speed, angular_speed)
 
