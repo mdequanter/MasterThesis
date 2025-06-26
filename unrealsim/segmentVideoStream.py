@@ -14,11 +14,11 @@ from ultralytics import YOLO
 
 # ✅ Settings
 screenOutput = True
-minSegmentSize = 5000  # Minimale grootte (in pixels) van het segment voor het tekenen van een pijl
 MODEL = 'unrealsim/models/blindnavUnreal.pt'
-SIGNALING_SERVER = "ws://192.168.0.74:9000"  # Signaling server URL
-DETECTION_CONFIDENCE = 0.9  # Minimum confidence for detection
+SIGNALING_SERVER = "ws://192.168.0.74:9000"
+DETECTION_CONFIDENCE = 0.9
 frame_times = deque(maxlen=100)
+SCAN_HEIGHTS = [0.3, 0.5, 0.7]  # procentuele scanlijnen
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -33,9 +33,6 @@ for arg in sys.argv[1:]:
 print(f"Signaling Server: {SIGNALING_SERVER}")
 print(f"MODEL: {MODEL}")
 
-
-
-
 wantedFramerate = 8
 maxQuality = 60
 TARGET_WIDTH, TARGET_HEIGHT = 640, 480
@@ -47,10 +44,8 @@ def decrypt_data(encrypted_base64):
     encrypted_data = base64.b64decode(encrypted_base64)
     iv = encrypted_data[:16]
     encrypted_bytes = encrypted_data[16:]
-
     cipher = Cipher(algorithms.AES(AES_KEY), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
-
     decrypted_padded = decryptor.update(encrypted_bytes) + decryptor.finalize()
     unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
     decrypted_bytes = unpadder.update(decrypted_padded) + unpadder.finalize()
@@ -76,7 +71,6 @@ async def receive_messages():
                 frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
                 frame_id = message_json["frame_id"]
-
                 if frame is None:
                     continue
 
@@ -86,47 +80,40 @@ async def receive_messages():
                 inference_time = (end_inference - start_inference) * 1000
 
                 overlay = frame.copy()
-                largest_area = 0
-                largest_center = None
-                direction_angle = 90
+                height, width = frame.shape[:2]
+                midpoints = []
 
                 for result in results:
                     if result.masks is not None:
-                        for mask in result.masks.xy:
-                            points = np.array(mask, dtype=np.int32)
-                            area = cv2.contourArea(points)
-                            if area > largest_area:
-                                M = cv2.moments(points)
-                                if M["m00"] != 0:
-                                    cX = int(M["m10"] / M["m00"])
-                                    cY = int(M["m01"] / M["m00"])
-                                    largest_center = (cX, cY)
-                                    largest_area = area
-                            cv2.fillPoly(overlay, [points], color=(0, 255, 0))
-                            cv2.polylines(frame, [points], isClosed=True, color=(0, 255, 0), thickness=2)
+                        mask = result.masks.data[0].cpu().numpy()
+                        mask = (mask * 255).astype(np.uint8)
+                        overlay[mask > 0] = cv2.addWeighted(frame, 0.3, np.full_like(frame, (0, 255, 0)), 0.7, 0)[mask > 0]
+                        for r in SCAN_HEIGHTS:
+                            y = int(height * r)
+                            scan_row = mask[y, :]
+                            indices = np.where(scan_row > 0)[0]
+                            if len(indices) > 0:
+                                midpoint_x = int(np.mean(indices))
+                                midpoints.append((midpoint_x, y))
+                                cv2.circle(overlay, (midpoint_x, y), 5, (255, 0, 0), -1)
+                            cv2.line(overlay, (0, y), (width, y), (150, 150, 150), 1)
 
-                alpha = 0.3
-                frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-
-                if largest_area >= minSegmentSize and largest_center is not None:
-                    start_point = (frame.shape[1] // 2, frame.shape[0])
-                    end_point = largest_center
-                    cv2.arrowedLine(frame, start_point, end_point, (0, 0, 255), 5, tipLength=0.2)
-
-                    # Bereken richting in graden
-                    dx = largest_center[0] - start_point[0]
-                    dy = start_point[1] - largest_center[1]
+                direction_angle = 90
+                if midpoints:
+                    avg_x = int(np.mean([pt[0] for pt in midpoints]))
+                    target_point = (avg_x, min([pt[1] for pt in midpoints]))
+                    start_point = (width // 2, height)
+                    cv2.arrowedLine(overlay, start_point, target_point, (0, 0, 255), 5, tipLength=0.2)
+                    dx = avg_x - start_point[0]
+                    dy = start_point[1] - target_point[1]
                     angle_rad = np.arctan2(dy, dx)
-                    angle_deg = np.degrees(angle_rad)
-
-                    # Beperk naar -90 tot 90 graden
-                    direction_angle = angle_deg
-                    # Stuur richting naar de server
+                    direction_angle = np.degrees(angle_rad)
                     detected = True
-                else :
+                else:
                     detected = False
-                    direction_angle = 90  # Geen detectie, standaard naar voren
-                await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2),"detected": detected, "frame_id": frame_id}))
+                    direction_angle = 90
+
+                await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "detected": detected, "frame_id": frame_id}))
 
                 current_time = time.time()
                 frame_times.append(current_time)
@@ -155,18 +142,17 @@ async def receive_messages():
                     last_status_time = current_time
 
                 if screenOutput:
-                    cv2.putText(frame, f"Time: {message_json['timestamp']}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"Resolution: {message_json['resolution']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"Size: {round(message_json['size_kb'], 2)} KB", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"Comp. Time({quality})%: {round(message_json['compression_time_ms'], 2)} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(frame, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-                    cv2.putText(frame, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-                    cv2.putText(frame, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-                    cv2.imshow("Ontvangen + Segmentatie + Richting", frame)
+                    cv2.putText(overlay, f"Time: {message_json['timestamp']}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(overlay, f"Resolution: {message_json['resolution']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(overlay, f"Size: {round(message_json['size_kb'], 2)} KB", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(overlay, f"Comp. Time({quality})%: {round(message_json['compression_time_ms'], 2)} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(overlay, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(overlay, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    cv2.putText(overlay, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    cv2.putText(overlay, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.imshow("Ontvangen + Segmentatie + Richting", overlay)
                     cv2.waitKey(1)
-                    
+
             except websockets.exceptions.ConnectionClosed:
                 print("🚫 Verbinding met server gesloten")
                 break
