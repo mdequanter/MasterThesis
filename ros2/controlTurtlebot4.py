@@ -10,6 +10,7 @@ from rclpy.publisher import Publisher
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
+from irobot_create_msgs.srv import Dock  # ✅ Dock service toegevoegd
 from rclpy.task import Future
 
 import time
@@ -17,22 +18,20 @@ import threading
 import tty
 import termios
 import select
-import queue  # ✅ toegevoegd
+import queue
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
-MAX_ANGULAR = 10.0  # Max angular speed in rad/s
+MAX_ANGULAR = 10.0
 
 linear_speed = 0.0
 angular_speed = 0.0
 align_with_arrow = False
-latest_direction_angle = 90.0  # Default richting vooruit
+latest_direction_angle = 90.0
 
-command_queue = queue.Queue()  # ✅ queue voor commando's uit keyboard thread
+command_queue = queue.Queue()
 
-align_with_arrow = False  # ✅ Variabele om te controleren of we moeten uitlijnen met de pijl
-
-# ✅ Parse CLI arguments
+# ✅ CLI-argumenten
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
@@ -96,6 +95,26 @@ class Undocker(Node):
         rclpy.spin_until_future_complete(self, result_future)
         self.get_logger().info('✅ Undock voltooid.')
         return True
+
+class Docker(Node):
+    def __init__(self):
+        super().__init__('dock_client')
+        self.cli = self.create_client(Dock, '/dock')
+
+    def send_dock(self):
+        if not self.cli.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error('❌ Dock service niet beschikbaar.')
+            return False
+
+        req = Dock.Request()
+        future = self.cli.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
+        if future.result() is not None:
+            self.get_logger().info('✅ Dock commando verzonden.')
+            return True
+        else:
+            self.get_logger().error('❌ Dock commando mislukt.')
+            return False
 
 class DirectionController(Node):
     def __init__(self):
@@ -163,7 +182,7 @@ def keyboard_loop():
             elif key == 'e':
                 angular_speed -= 0.1
             elif key == 'd':
-                command_queue.put('undock')  # ✅ Zet undock in de queue
+                command_queue.put('undock')  # dock/undock via status
             elif key == 'c':
                 align_with_arrow = True
         time.sleep(0.1)
@@ -182,14 +201,12 @@ def main():
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
 
-            # ⏱️ Check op input vanuit keyboard
             if align_with_arrow:
                 controller.align_to_direction(latest_direction_angle)
                 align_with_arrow = False
             else:
                 controller.publish_manual_control(linear_speed, angular_speed)
 
-            # ✅ Verwerk commandos uit de keyboard queue
             try:
                 cmd = command_queue.get_nowait()
                 if cmd == 'undock':
@@ -201,7 +218,9 @@ def main():
                         undocker.send_undock()
                         undocker.destroy_node()
                     else:
-                        print("🛑 Reeds ontkoppeld.")
+                        docker = Docker()
+                        docker.send_dock()
+                        docker.destroy_node()
             except queue.Empty:
                 pass
 
