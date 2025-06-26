@@ -61,13 +61,13 @@ class DockChecker(Node):
             self.future.set_result(True)
 
     def is_docked(self, timeout_sec=3.0):
-        if rclpy.ok():
-            rclpy.spin_until_future_complete(self, self.future, timeout_sec=timeout_sec)
-        if self.dock_status:
-            return self.dock_status.is_docked
-        else:
-            self.get_logger().warn("⚠️ Geen /dock_status ontvangen binnen timeout.")
-            return False
+        start_time = self.get_clock().now()
+        while not self.received:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if (self.get_clock().now() - start_time).nanoseconds / 1e9 > timeout_sec:
+                self.get_logger().warn("⚠️ Geen /dock_status ontvangen binnen timeout.")
+                return False
+        return self.dock_status.is_docked
 
 class Undocker(Node):
     def __init__(self):
