@@ -165,7 +165,7 @@ def keyboard_loop(controller: DirectionController):
                     undocker.destroy_node()
                 else:
                     print("🛑 Reeds ontkoppeld.")
-            elif key == 'a':
+            elif key == 'c':
                 align_with_arrow = True
 
         if align_with_arrow:
