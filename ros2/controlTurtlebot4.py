@@ -151,7 +151,7 @@ def keyboard_loop(controller: DirectionController):
             elif key == 's':
                 linear_speed = 0.0
                 angular_speed = 0.0
-            elif key == 'q':
+            elif key == 'a':
                 angular_speed += 0.1
             elif key == 'e':
                 angular_speed -= 0.1
