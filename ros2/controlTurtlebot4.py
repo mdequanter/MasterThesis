@@ -21,7 +21,7 @@ import queue  # ✅ toegevoegd
 
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
-MAX_ANGULAR = 10.0  # Max angular speed in rad/s
+MAX_ANGULAR = 1.0  # Max angular speed in rad/s
 
 linear_speed = 0.0
 angular_speed = 0.0
