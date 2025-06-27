@@ -135,6 +135,8 @@ class DirectionController(Node):
             value = r["value"]
             frame_id = r["header"]["frame_id"]
 
+            print (f"IR Reading: {frame_id} = {value}")
+
             if value > OBSTACLE_THRESHOLD:  # ✅ Groot = obstakel
                 if "left" in frame_id:
                     obstacle_left = True
