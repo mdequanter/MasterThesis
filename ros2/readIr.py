@@ -8,9 +8,9 @@ from irobot_create_msgs.msg import IrIntensityVector
 
 OBSTACLE_THRESHOLD = 20  # Grootte waarboven obstakel wordt gezien
 
-class IrController(Node):
+class IrAvoidanceController(Node):
     def __init__(self):
-        super().__init__('ir_controller')
+        super().__init__('ir_avoidance_controller')
 
         qos_profile = QoSProfile(
             depth=10,
@@ -26,37 +26,51 @@ class IrController(Node):
 
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        self.obstacle_detected = False
         self.get_logger().info("✅ Subscribed to /ir_intensity met BEST_EFFORT QoS")
 
     def listener_callback(self, msg):
-        obstacle = False
+        obstacle_front = False
+        obstacle_left = False
+        obstacle_right = False
+
+        # Bekijk alle metingen
         for reading in msg.readings:
             frame = reading.header.frame_id
             value = reading.value
             print(f"- {frame}: {value}")
+
             if value > OBSTACLE_THRESHOLD:
-                obstacle = True
+                if "front" in frame:
+                    obstacle_front = True
+                elif "left" in frame:
+                    obstacle_left = True
+                elif "right" in frame:
+                    obstacle_right = True
 
         twist = Twist()
-        if obstacle:
-            if not self.obstacle_detected:
-                self.get_logger().info("🚧 Obstakel gedetecteerd: stoppen")
-            self.obstacle_detected = True
+
+        # Beslis op basis van detectie
+        if obstacle_front:
+            self.get_logger().info("🚧 Obstakel VOORAAN: stoppen")
             twist.linear.x = 0.0
             twist.angular.z = 0.0
+        elif obstacle_left:
+            self.get_logger().info("↪️ Obstakel LINKS: draaien naar rechts")
+            twist.linear.x = 0.0
+            twist.angular.z = -0.5
+        elif obstacle_right:
+            self.get_logger().info("↩️ Obstakel RECHTS: draaien naar links")
+            twist.linear.x = 0.0
+            twist.angular.z = 0.5
         else:
-            if self.obstacle_detected:
-                self.get_logger().info("✅ Geen obstakel meer: vooruit rijden")
-            self.obstacle_detected = False
-            twist.linear.x = 0.2  # snelheid vooruit
+            twist.linear.x = 0.2  # vooruit
             twist.angular.z = 0.0
 
         self.publisher.publish(twist)
 
 def main(args=None):
     rclpy.init(args=args)
-    node = IrController()
+    node = IrAvoidanceController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
