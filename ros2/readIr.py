@@ -6,7 +6,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.msg import IrIntensityVector
 
-OBSTACLE_THRESHOLD = 20  # Grootte waarboven obstakel wordt gezien
+OBSTACLE_THRESHOLD = 100  # Grootte waarboven obstakel wordt gezien
 
 class IrAvoidanceController(Node):
     def __init__(self):
