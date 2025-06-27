@@ -187,6 +187,9 @@ def keyboard_loop():
             elif key == 'c':
                 align_with_arrow = not align_with_arrow
                 print(f"🔄 Align with arrow {'ingeschakeld' if align_with_arrow else 'uitgeschakeld'}")
+            elif key == 'q':
+                print("⏹️ Afsluiten op verzoek van gebruiker (q)")
+                sys.exit(0)  # 🚪 Beëindig het programma netjes
         time.sleep(0.1)
 
 def main():
