@@ -30,35 +30,44 @@ class IrAvoidanceController(Node):
 
     def listener_callback(self, msg):
         obstacle_front = False
-        obstacle_left = False
-        obstacle_right = False
+        left_values = []
+        right_values = []
 
-        # Bekijk alle metingen
+        # Verzamel waarden per zijde
         for reading in msg.readings:
             frame = reading.header.frame_id
             value = reading.value
             print(f"- {frame}: {value}")
 
-            if value > OBSTACLE_THRESHOLD:
-                if "front" in frame:
-                    obstacle_front = True
-                elif "left" in frame:
-                    obstacle_left = True
-                elif "right" in frame:
-                    obstacle_right = True
+            if "front" in frame and value > OBSTACLE_THRESHOLD:
+                obstacle_front = True
+            elif "left" in frame:
+                left_values.append(value)
+            elif "right" in frame:
+                right_values.append(value)
 
         twist = Twist()
 
-        # Beslis op basis van detectie
         if obstacle_front:
-            self.get_logger().info("🚧 Obstakel VOORAAN: stoppen")
-            twist.linear.x = 0.0
-            twist.angular.z = 0.0
-        elif obstacle_left:
+            # Bepaal waar meer ruimte is (kleinere waarde = meer ruimte)
+            avg_left = sum(left_values) / len(left_values) if left_values else OBSTACLE_THRESHOLD
+            avg_right = sum(right_values) / len(right_values) if right_values else OBSTACLE_THRESHOLD
+            self.get_logger().info(f"🚧 Obstakel VOORAAN: links gem={avg_left:.1f}, rechts gem={avg_right:.1f}")
+
+            if avg_left < avg_right:
+                self.get_logger().info("↩️ Meer ruimte LINKS: draaien naar links")
+                twist.linear.x = 0.0
+                twist.angular.z = 0.5
+            else:
+                self.get_logger().info("↪️ Meer ruimte RECHTS: draaien naar rechts")
+                twist.linear.x = 0.0
+                twist.angular.z = -0.5
+
+        elif any(v > OBSTACLE_THRESHOLD for v in left_values):
             self.get_logger().info("↪️ Obstakel LINKS: draaien naar rechts")
             twist.linear.x = 0.0
             twist.angular.z = -0.5
-        elif obstacle_right:
+        elif any(v > OBSTACLE_THRESHOLD for v in right_values):
             self.get_logger().info("↩️ Obstakel RECHTS: draaien naar links")
             twist.linear.x = 0.0
             twist.angular.z = 0.5
