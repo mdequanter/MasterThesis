@@ -2,18 +2,25 @@
 
 import rclpy
 from rclpy.node import Node
-from irobot_create_msgs.msg import IrIntensityVector  # Gebruik hier je echte msg type
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from irobot_create_msgs.msg import IrIntensityVector  # Pas aan naar jouw message type indien nodig
 
 class IrViewer(Node):
     def __init__(self):
         super().__init__('ir_viewer')
+
+        qos_profile = QoSProfile(
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT
+        )
+
         self.subscription = self.create_subscription(
             IrIntensityVector,
             '/ir_intensity',
             self.listener_callback,
-            10
+            qos_profile
         )
-        self.get_logger().info("✅ Subscribed to /ir_intensity")
+        self.get_logger().info("✅ Subscribed to /ir_intensity met BEST_EFFORT QoS")
 
     def listener_callback(self, msg):
         print("==== /ir_intensity ontvangen ====")
