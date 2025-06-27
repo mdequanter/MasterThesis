@@ -142,7 +142,7 @@ async def receive_direction(controller: DirectionController):
                     if detected:
                         last_detection_time = current_time
                     else:
-                        if align_with_arrow and (current_time - last_detection_time > NO_DETECTION_TIMEOUT):
+                        if (current_time - last_detection_time > NO_DETECTION_TIMEOUT):
                             print(f"🚫 Geen detectie > {NO_DETECTION_TIMEOUT}s → Stop robot.")
                             controller.publish_manual_control(0.0, 0.0)
                             align_with_arrow = False
