@@ -11,46 +11,39 @@ from geometry_msgs.msg import Twist
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
 from rclpy.task import Future
+from std_msgs.msg import String  # Als placeholder voor IR-data (pas aan naar jouw type)
 
 import time
 import threading
 import tty
 import termios
 import select
-import queue  # ✅ toegevoegd
+import queue
 
 # ✅ Standaardinstellingen
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 COMMAND_RATE = 2
-MAX_ANGULAR = 3.0  # Max angular speed in rad/s
-NO_DETECTION_TIMEOUT = 0.5  # seconden, instelbaar
+MAX_ANGULAR = 3.0
+NO_DETECTION_TIMEOUT = 0.5
+OBSTACLE_THRESHOLD = 20  # Grootte waarboven obstakel
 
 linear_speed = 0.0
 angular_speed = 0.0
 align_with_arrow = False
-latest_direction_angle = 90.0  # Default richting vooruit
+latest_direction_angle = 90.0
+collision_avoidance = True  # 🚧 standaard actief
 
-command_queue = queue.Queue()  # ✅ queue voor commando's uit keyboard thread
+command_queue = queue.Queue()
 
-# ✅ Parse CLI arguments
 for arg in sys.argv[1:]:
     if arg.startswith("SIGNALING_SERVER="):
         SIGNALING_SERVER = arg.split("=", 1)[1]
     elif arg.startswith("COMMAND_RATE="):
-        try:
-            COMMAND_RATE = float(arg.split("=")[1])
-        except ValueError:
-            print("⚠️ Ongeldige COMMAND_RATE, standaard blijft:", COMMAND_RATE)
+        COMMAND_RATE = float(arg.split("=")[1])
     elif arg.startswith("MAX_ANGULAR="):
-        try:
-            MAX_ANGULAR = float(arg.split("=")[1])
-        except ValueError:
-            print("⚠️ Ongeldige MAX_ANGULAR waarde, standaard blijft:", MAX_ANGULAR)
+        MAX_ANGULAR = float(arg.split("=")[1])
     elif arg.startswith("NO_DETECTION_TIMEOUT="):
-        try:
-            NO_DETECTION_TIMEOUT = float(arg.split("=")[1])
-        except ValueError:
-            print("⚠️ Ongeldige NO_DETECTION_TIMEOUT waarde, standaard blijft:", NO_DETECTION_TIMEOUT)
+        NO_DETECTION_TIMEOUT = float(arg.split("=")[1])
 
 class DockChecker(Node):
     def __init__(self):
@@ -86,16 +79,13 @@ class Undocker(Node):
         if not self._client.wait_for_server(timeout_sec=5.0):
             self.get_logger().error('❌ Undock server niet beschikbaar.')
             return False
-
         goal_msg = Undock.Goal()
         send_future = self._client.send_goal_async(goal_msg)
         rclpy.spin_until_future_complete(self, send_future)
         goal_handle = send_future.result()
-
         if not goal_handle.accepted:
             self.get_logger().error('❌ Undock goal geweigerd.')
             return False
-
         self.get_logger().info('✅ Undock goal geaccepteerd.')
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
@@ -107,6 +97,16 @@ class DirectionController(Node):
         super().__init__('direction_controller')
         self.publisher: Publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.last_publish_time = time.time()
+        self.ir_subscription = self.create_subscription(
+            String,  # Pas aan naar je echte msg type
+            '/ir_intensity',
+            self.ir_callback,
+            qos_profile_sensor_data
+        )
+        self.last_ir_msg = None
+
+    def ir_callback(self, msg):
+        self.last_ir_msg = msg
 
     def publish_manual_control(self, linear_x, angular_z):
         twist = Twist()
@@ -120,8 +120,46 @@ class DirectionController(Node):
         angular_z = max(-MAX_ANGULAR, min(MAX_ANGULAR, proportion * MAX_ANGULAR))
         self.publish_manual_control(linear_x, angular_z)
 
+    def avoid_collision(self):
+        if not self.last_ir_msg:
+            return False
+        # Parsing: hier moet je je echte message fields gebruiken
+        msg_dict = json.loads(self.last_ir_msg.data)
+        readings = msg_dict["readings"]
+
+        obstacle_left = False
+        obstacle_right = False
+        obstacle_front = False
+
+        for r in readings:
+            value = r["value"]
+            frame_id = r["header"]["frame_id"]
+
+            if value > OBSTACLE_THRESHOLD:  # ✅ Groot = obstakel
+                if "left" in frame_id:
+                    obstacle_left = True
+                elif "right" in frame_id:
+                    obstacle_right = True
+                elif "center" in frame_id:
+                    obstacle_front = True
+
+        if obstacle_front:
+            print("🚧 Obstacle front → Stop")
+            self.publish_manual_control(0.0, 0.0)
+            return True
+        elif obstacle_left:
+            print("↪️ Obstacle left → Turn right")
+            self.publish_manual_control(0.0, -0.5)
+            return True
+        elif obstacle_right:
+            print("↩️ Obstacle right → Turn left")
+            self.publish_manual_control(0.0, 0.5)
+            return True
+
+        return False
+
 async def receive_direction(controller: DirectionController):
-    global latest_direction_angle, align_with_arrow
+    global latest_direction_angle, align_with_arrow, collision_avoidance
 
     last_detection_time = time.time()
     print(f"📡 Verbinden met: {SIGNALING_SERVER}")
@@ -143,10 +181,9 @@ async def receive_direction(controller: DirectionController):
                         last_detection_time = current_time
                     else:
                         if (current_time - last_detection_time > NO_DETECTION_TIMEOUT):
-                            print(f"🚫 Geen detectie > {NO_DETECTION_TIMEOUT}s → Stop robot.")
-                            controller.publish_manual_control(0.0, 0.0)
+                            print(f"🚫 Geen detectie > {NO_DETECTION_TIMEOUT}s → Collision avoidance AAN")
+                            collision_avoidance = True
                             align_with_arrow = False
-
             except Exception as e:
                 print(f"⚠️ Fout bij verwerken bericht: {e}")
                 break
@@ -166,7 +203,7 @@ def get_key():
     return key
 
 def keyboard_loop():
-    global linear_speed, angular_speed, align_with_arrow
+    global linear_speed, angular_speed, align_with_arrow, collision_avoidance
 
     while True:
         key = get_key()
@@ -183,17 +220,20 @@ def keyboard_loop():
             elif key == 'e':
                 angular_speed -= 0.1
             elif key == 'd':
-                command_queue.put('undock')  # ✅ Zet undock in de queue
+                command_queue.put('undock')
             elif key == 'c':
                 align_with_arrow = not align_with_arrow
                 print(f"🔄 Align with arrow {'ingeschakeld' if align_with_arrow else 'uitgeschakeld'}")
+            elif key == 'o':
+                collision_avoidance = not collision_avoidance
+                print(f"🚧 Collision avoidance {'ingeschakeld' if collision_avoidance else 'uitgeschakeld'}")
             elif key == 'q':
                 print("⏹️ Afsluiten op verzoek van gebruiker (q)")
-                sys.exit(0)  # 🚪 Beëindig het programma netjes
+                sys.exit(0)
         time.sleep(0.1)
 
 def main():
-    global align_with_arrow
+    global align_with_arrow, collision_avoidance
     rclpy.init()
     controller = DirectionController()
     loop = asyncio.get_event_loop()
@@ -206,6 +246,10 @@ def main():
         while rclpy.ok():
             rclpy.spin_once(controller, timeout_sec=0.1)
 
+            if collision_avoidance:
+                if controller.avoid_collision():
+                    continue
+
             if align_with_arrow:
                 controller.align_to_direction(linear_speed, latest_direction_angle)
             else:
@@ -215,9 +259,7 @@ def main():
                 cmd = command_queue.get_nowait()
                 if cmd == 'undock':
                     checker = DockChecker()
-                    is_docked = checker.is_docked()
-                    checker.destroy_node()
-                    if is_docked:
+                    if checker.is_docked():
                         undocker = Undocker()
                         undocker.send_undock()
                         undocker.destroy_node()
