@@ -3,11 +3,14 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
-from irobot_create_msgs.msg import IrIntensityVector  # Pas aan naar jouw message type indien nodig
+from geometry_msgs.msg import Twist
+from irobot_create_msgs.msg import IrIntensityVector
 
-class IrViewer(Node):
+OBSTACLE_THRESHOLD = 20  # Grootte waarboven obstakel wordt gezien
+
+class IrController(Node):
     def __init__(self):
-        super().__init__('ir_viewer')
+        super().__init__('ir_controller')
 
         qos_profile = QoSProfile(
             depth=10,
@@ -20,20 +23,40 @@ class IrViewer(Node):
             self.listener_callback,
             qos_profile
         )
+
+        self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
+
+        self.obstacle_detected = False
         self.get_logger().info("✅ Subscribed to /ir_intensity met BEST_EFFORT QoS")
 
     def listener_callback(self, msg):
-        print("==== /ir_intensity ontvangen ====")
-        print(f"Header: {msg.header}")
+        obstacle = False
         for reading in msg.readings:
             frame = reading.header.frame_id
             value = reading.value
             print(f"- {frame}: {value}")
-        print("=================================")
+            if value > OBSTACLE_THRESHOLD:
+                obstacle = True
+
+        twist = Twist()
+        if obstacle:
+            if not self.obstacle_detected:
+                self.get_logger().info("🚧 Obstakel gedetecteerd: stoppen")
+            self.obstacle_detected = True
+            twist.linear.x = 0.0
+            twist.angular.z = 0.0
+        else:
+            if self.obstacle_detected:
+                self.get_logger().info("✅ Geen obstakel meer: vooruit rijden")
+            self.obstacle_detected = False
+            twist.linear.x = 0.2  # snelheid vooruit
+            twist.angular.z = 0.0
+
+        self.publisher.publish(twist)
 
 def main(args=None):
     rclpy.init(args=args)
-    node = IrViewer()
+    node = IrController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
