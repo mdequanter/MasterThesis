@@ -5,7 +5,7 @@ import websockets
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import qos_profile_sensor_data, QoSProfile, QoSReliabilityPolicy
 from rclpy.publisher import Publisher
 from geometry_msgs.msg import Twist
 from irobot_create_msgs.action import Undock
@@ -97,11 +97,17 @@ class DirectionController(Node):
         super().__init__('direction_controller')
         self.publisher: Publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.last_publish_time = time.time()
+
+        qos_best_effort = QoSProfile(
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT
+        )
+
         self.ir_subscription = self.create_subscription(
             String,  # Pas aan naar je echte msg type
             '/ir_intensity',
             self.ir_callback,
-            qos_profile_sensor_data
+            qos_best_effort
         )
         self.last_ir_msg = None
 
@@ -123,7 +129,6 @@ class DirectionController(Node):
     def avoid_collision(self):
         if not self.last_ir_msg:
             return False
-        # Parsing: hier moet je je echte message fields gebruiken
         msg_dict = json.loads(self.last_ir_msg.data)
         readings = msg_dict["readings"]
 
@@ -135,9 +140,9 @@ class DirectionController(Node):
             value = r["value"]
             frame_id = r["header"]["frame_id"]
 
-            print (f"IR Reading: {frame_id} = {value}")
+            print(f"IR Reading: {frame_id} = {value}")
 
-            if value > OBSTACLE_THRESHOLD:  # ✅ Groot = obstakel
+            if value > OBSTACLE_THRESHOLD:
                 if "left" in frame_id:
                     obstacle_left = True
                 elif "right" in frame_id:
