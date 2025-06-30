@@ -27,8 +27,8 @@ MAX_ANGULAR = 3.0
 NO_DETECTION_TIMEOUT = 0.5
 OBSTACLE_THRESHOLD = 20  # Grootte waarboven obstakel
 
-linear_speed = 0.0
-angular_speed = 0.0
+linear_speed = 0.1
+angular_speed = 0.5
 align_with_arrow = False
 latest_direction_angle = 90.0
 collision_avoidance = True  # 🚧 standaard actief
