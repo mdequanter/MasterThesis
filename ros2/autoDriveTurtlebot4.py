@@ -25,7 +25,7 @@ BAUDRATE = 9600
 
 
 SIGNALING_SERVER_DIRECTION = "ws://192.168.0.74:9000"
-MAX_ANGULAR = 1 # Max angular speed in rad/s
+MAX_ANGULAR = 2 # Max angular speed in rad/s
 OB_TRESHOLD = 50
 MIN_BATTERY_LEVEL_PCT = 0.2  # Minimum battery level percentage to continue operation
 forward_speed = 0.1  # Standaard vooruit snelheid
