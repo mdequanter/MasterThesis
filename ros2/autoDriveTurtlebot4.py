@@ -114,6 +114,7 @@ class HazardListener(Node):
                 dtype = detection.type
                 #print(f" - Frame: {frame}, Type: {dtype}")
                 latest_hazard_data.append((frame, dtype))
+                time.sleep(0.5)
 
 
 # Asynchrone taak om direction op te halen
