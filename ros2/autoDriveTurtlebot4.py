@@ -19,7 +19,7 @@ import serial
 # Configuratie
 SIGNALING_SERVER_DIRECTION = "ws://192.168.0.74:9000"
 SERIAL_PORT = "/dev/ttyUSB0"   # Pas aan indien nodig
-BAUDRATE = 115200
+BAUDRATE = 9600
 
 MAX_ANGULAR = 1
 OB_TRESHOLD = 50
