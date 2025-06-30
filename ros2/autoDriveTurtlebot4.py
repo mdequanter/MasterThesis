@@ -202,8 +202,10 @@ async def main():
                 for frame, dtype in latest_hazard_data:
                         if (frame == "bump_left" or frame == "bump_front_left"):
                             controller.publish_manual_control(0.0,turning_speed*2)
+                            time.sleep(0.5)  # Wacht even om bump te verwerken
                         if (frame == "bump_right" or frame == "bump_front_right"):
                             controller.publish_manual_control(0.0,-turning_speed*2)
+                            time.sleep(0.5)  # Wacht even om bump te verwerken
 
             # 🧠 Beslissingslogica
             decision = "Onbekend"
