@@ -116,11 +116,11 @@ async def receive_messages():
                     angle_rad = np.arctan2(dy, dx)
                     direction_angle = np.degrees(angle_rad)
                     detected = True
+                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "frame_id": frame_id}))
                 else:
-                    detected = False
-                    direction_angle = 90
+                    await websocket.send(json.dumps({"detected": False, "frame_id": frame_id}))
 
-                await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "detected": detected, "frame_id": frame_id}))
+                
 
                 current_time = time.time()
                 frame_times.append(current_time)
