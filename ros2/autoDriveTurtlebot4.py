@@ -201,10 +201,12 @@ async def main():
                 #print("⚠️ Er is een hazard! Details:")
                 for frame, dtype in latest_hazard_data:
                         if (frame == "bump_left" or frame == "bump_front_left"):
+                            print(f"⚠️ Bump links gedetecteerd: {frame}")
                             time.sleep(5)  # Wacht even om bump te verwerken
                             controller.publish_manual_control(0.0,turning_speed*2)
                             time.sleep(5)  # Wacht even om bump te verwerken
                         if (frame == "bump_right" or frame == "bump_front_right"):
+                            print(f"⚠️ Bump rechts gedetecteerd: {frame}")
                             time.sleep(5)  # Wacht even om bump te verwerken
                             controller.publish_manual_control(0.0,-turning_speed*2)
                             time.sleep(5)  # Wacht even om bump te verwerken
