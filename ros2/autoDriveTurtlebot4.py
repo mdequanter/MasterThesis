@@ -203,9 +203,11 @@ async def main():
                         if (frame == "bump_left" or frame == "bump_front_left"):
                             time.sleep(5)  # Wacht even om bump te verwerken
                             controller.publish_manual_control(0.0,turning_speed*2)
+                            time.sleep(5)  # Wacht even om bump te verwerken
                         if (frame == "bump_right" or frame == "bump_front_right"):
                             time.sleep(5)  # Wacht even om bump te verwerken
                             controller.publish_manual_control(0.0,-turning_speed*2)
+                            time.sleep(5)  # Wacht even om bump te verwerken
                             
 
             # 🧠 Beslissingslogica
