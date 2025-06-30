@@ -257,7 +257,7 @@ async def main():
                 
                 if front_obstacle:
                     AIMode = False
-                    if (left_obstacle and right_obstacle):
+                    if (left_obstacle or right_obstacle):
                         if (left_obstacle > right_obstacle):
                             angle_int = 30
                             ser.write(f"{angle_int}\n".encode())
@@ -266,12 +266,6 @@ async def main():
                             angle_int = 120
                             ser.write(f"{angle_int}\n".encode())
                             controller.publish_manual_control(0.0, turning_speed)
-                    if left_obstacle:
-                        angle_int = 30
-                        ser.write(f"{angle_int}\n".encode())
-                        controller.publish_manual_control(forward_speed,-turning_speed)
-                    if right_obstacle:
-                        controller.publish_manual_control(forward_speed,turning_speed)
                                     
             await asyncio.sleep(0.1)
 
