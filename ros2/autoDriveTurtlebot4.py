@@ -7,6 +7,10 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from irobot_create_msgs.msg import IrIntensityVector
+from irobot_create_msgs.msg import HazardDetectionVector
+from sensor_msgs.msg import BatteryState
+import sys
+
 from geometry_msgs.msg import Twist
 from rclpy.qos import  QoSProfile, QoSReliabilityPolicy
 from rclpy.publisher import Publisher
@@ -14,15 +18,44 @@ import time
 from collections import deque
 
 SIGNALING_SERVER_DIRECTION = "ws://192.168.0.74:9000"
-MAX_ANGULAR = 5  # Max angular speed in rad/s
-OB_TRESHOLD = 100
+MAX_ANGULAR = 1 # Max angular speed in rad/s
+OB_TRESHOLD = 50
+MIN_BATTERY_LEVEL_PCT = 0.2  # Minimum battery level percentage to continue operation
+forward_speed = 0.0  # Standaard vooruit snelheid
+turning_speed = 0.0  # Standaard draai snelheid
 
 latest_direction = None
 latest_detected = None
 latest_ir_data = None
+latest_hazard_data = None
+latest_battery_state = None
+
 
 # Een buffer met (timestamp, waarde)
 direction_history = deque()
+
+class BatteryListener(Node):
+    def __init__(self):
+        super().__init__('battery_listener')
+
+        qos_profile = QoSProfile(
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT
+        )
+
+        self.subscription = self.create_subscription(
+            BatteryState,
+            '/battery_state',
+            self.battery_callback,
+            qos_profile
+        )
+
+        self.get_logger().info("✅ Subscribed to /battery_state")
+
+    def battery_callback(self, msg):
+        global latest_battery_state
+        latest_battery_state = msg.percentage
+
 
 
 # ROS Node om IR-values op te halen
@@ -48,6 +81,41 @@ class IRListener(Node):
         global latest_ir_data
         latest_ir_data = [(r.header.frame_id, r.value) for r in msg.readings]
 
+# ROS Node om Hazard detections op te halen
+class HazardListener(Node):
+    def __init__(self):
+        super().__init__('hazard_listener')
+
+        qos_profile = QoSProfile(
+            depth=10,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT
+        )
+
+        self.subscription = self.create_subscription(
+            HazardDetectionVector,
+            '/hazard_detection',
+            self.hazard_callback,
+            qos_profile
+        )
+
+        self.get_logger().info("✅ Subscribed to hazard topic")
+
+    def hazard_callback(self, msg):
+            global latest_hazard_data
+            if not msg.detections:
+                #print("✅ Geen detecties")
+                latest_hazard_data = []
+                return
+
+            latest_hazard_data = []
+            #print("⚠️ Hazard detectie(s):")
+            for detection in msg.detections:
+                frame = detection.header.frame_id
+                dtype = detection.type
+                #print(f" - Frame: {frame}, Type: {dtype}")
+                latest_hazard_data.append((frame, dtype))
+
+
 # Asynchrone taak om direction op te halen
 async def get_direction():
     global latest_direction, latest_detected
@@ -59,21 +127,11 @@ async def get_direction():
             try:
                 message = await websocket.recv()
                 data = json.loads(message)
+                #print (f"📥 Ontvangen data: {data}")
                 direction = data.get("direction_angle")
-                currentDetected = data.get("detected")
                 timestamp = time.time()
-
-                if (currentDetected is None):
-                    last_no_detection = time.time()
-                else:
-                    last_no_detection = False
-                    latest_detected = True
-                
-                if (last_no_detection > timestamp - 1.0):
-                    latest_detected = False
-
-
                 if direction is not None:
+                    #print (f"📥 Ontvangen richting: {direction:.2f}°")
                     direction_history.append((timestamp, direction))
                     last_timestamp = direction_history[-1][0]
 
@@ -88,7 +146,6 @@ async def get_direction():
                         latest_direction = avg_direction
                     else:
                         latest_direction = None
-
                 # print(f"🎯 Gemiddelde richting laatste seconde: {latest_direction:.2f}")
 
             except Exception as e:
@@ -105,7 +162,7 @@ class DirectionController(Node):
         twist = Twist()
         twist.linear.x = linear_x
         twist.angular.z = angular_z
-        print (f"➡️ x: {twist.linear.x:.2f}, z: {twist.angular.z:.2f}")
+        #print (f"➡️ x: {twist.linear.x:.2f}, z: {twist.angular.z:.2f}")
         self.publisher.publish(twist)
 
     def align_to_direction(self, linear_x, angle):
@@ -120,6 +177,9 @@ async def main():
     global OB_TRESHOLD
     rclpy.init()
     ir_listener = IRListener()
+    hazard_listener = HazardListener()
+    battery_listener = BatteryListener()
+
 
     controller = DirectionController()
 
@@ -130,14 +190,20 @@ async def main():
     try:
         while rclpy.ok():
             rclpy.spin_once(ir_listener, timeout_sec=0.1)
+            rclpy.spin_once(hazard_listener, timeout_sec=0.1)
+            rclpy.spin_once(battery_listener, timeout_sec=0.1)
 
-            if latest_direction is not None:
-                print(f"🎯 Direction angle: {latest_direction}, Detected: {latest_detected}")
+            if latest_battery_state is not None and latest_battery_state < MIN_BATTERY_LEVEL_PCT:
+                print(f"🔋 Batterij bijna leeg ({latest_battery_state*100:.0f}%) - script stopt.")
+                sys.exit(0)            
 
-            if latest_ir_data is not None:
-                for frame, value in latest_ir_data:
-                    if (value > 50) :
-                        print(f"   - {frame}: {value}")
+            if latest_hazard_data:
+                #print("⚠️ Er is een hazard! Details:")
+                for frame, dtype in latest_hazard_data:
+                        if (frame == "bump_left" or frame == "bump_front_left"):
+                            controller.publish_manual_control(0.0,turning_speed*2)
+                        if (frame == "bump_right" or frame == "bump_front_right"):
+                            controller.publish_manual_control(0.0,-turning_speed*2)
 
             # 🧠 Beslissingslogica
             decision = "Onbekend"
@@ -161,61 +227,25 @@ async def main():
 
                 printNeeded = True
                 # Bepaal actie
-                AIMode = True
+                AIMode = False
 
-                if latest_detected:
+                if latest_direction is not None:
                     AIMode = True
-                    print (f"🎯 AI richting: {latest_direction}")
-                    if latest_direction < 87:
-                        print(f"🧭 AI richting: {latest_direction}")
-                        decision = "AI_RIGHT"
-                    elif latest_direction > 93:
-                        print (f"🧭 AI richting: {latest_direction}")
-                        decision = "AI_LEFT"
-                    else:
-                        print (f"🧭 AI richting: {latest_direction}")
-                        decision = "AI_FORWARD"
-
-                if not latest_detected:
-                    AIMode = False
-                    controller.publish_manual_control(0.0,0.5)
-
+                    controller.align_to_direction(forward_speed, latest_direction)
+                    decision = "AIMODE"
+                
                 if front_obstacle:
                     AIMode = False
-                    if left_obstacle and right_obstacle:
-                        decision = "OB_LEFT" # turn left when both sides are blocked
-                    
+                    if (left_obstacle and right_obstacle):
+                        if (left_obstacle > right_obstacle):
+                            controller.publish_manual_control(0.0,-turning_speed)
+                        else:
+                            controller.publish_manual_control(0.0, turning_speed)
                     if left_obstacle:
-                        decision = "OB_RIGHT"
-                    
+                        controller.publish_manual_control(forward_speed,-turning_speed)
                     if right_obstacle:
-                        decision = "OB_LEFT"
-            
-                if printNeeded:
-                    print(f"🧭 BESLISSING: {decision}")
-
-                linear_x=0.1
-                angular_z=0.0
-
-                if (AIMode == True):
-                    controller.align_to_direction(linear_x,latest_direction)
-
-
-                '''
-                if (AIMode == False):
-                    if decision == "OB_LEFT":
-                        linear_x = 0.0
-                        angular_z = -0.5
-                        controller.publish_manual_control(linear_x, angular_z)
-                    elif decision == "OB_RIGHT":
-                        linear_x = 0.0
-                        angular_z = 0.5
-                        controller.publish_manual_control(linear_x, angular_z)
-                    else :
-                        linear_x = 0.1
-                        angular_z = 0.0
-                        controller.publish_manual_control(linear_x, angular_z)
-                '''
+                        controller.publish_manual_control(forward_speed,turning_speed)
+                                    
             await asyncio.sleep(0.1)
 
     except KeyboardInterrupt:
