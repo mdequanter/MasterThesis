@@ -203,11 +203,9 @@ async def main():
                         if (frame == "bump_left" or frame == "bump_front_left"):
                             print(f"⚠️ Bump links gedetecteerd: {frame}")
                             controller.publish_manual_control(0.0,turning_speed)
-                            time.sleep(5)
                         if (frame == "bump_right" or frame == "bump_front_right"):
                             print(f"⚠️ Bump rechts gedetecteerd: {frame}")
                             controller.publish_manual_control(0.0,-turning_speed)
-                            time.sleep(5)
 
             # 🧠 Beslissingslogica
             decision = "Onbekend"
