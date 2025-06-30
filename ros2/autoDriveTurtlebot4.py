@@ -29,7 +29,7 @@ MAX_ANGULAR = 1 # Max angular speed in rad/s
 OB_TRESHOLD = 50
 MIN_BATTERY_LEVEL_PCT = 0.2  # Minimum battery level percentage to continue operation
 forward_speed = 0.1  # Standaard vooruit snelheid
-turning_speed = 0.5  # Standaard draai snelheid
+turning_speed = 0.8  # Standaard draai snelheid
 
 latest_direction = None
 latest_detected = None
