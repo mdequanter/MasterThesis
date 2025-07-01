@@ -64,7 +64,6 @@ while True:
         ret, frame = cap.read()
 
 
-    ret, frame = cap.read()
     if not ret:
         print("⚠️ Geen frame ontvangen.")
         break
