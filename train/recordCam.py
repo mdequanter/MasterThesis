@@ -36,13 +36,15 @@ print (f"📸 Snapshot directory: {SNAPSHOT_DIR}")
 os.makedirs(SNAPSHOT_DIR, exist_ok=True)
 
 # ✅ Webcam openen
-cap = cv2.VideoCapture(CAMERA_INDEX)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_SIZE[0])
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
 
-if not cap.isOpened():
-    print("❌ Kon de camera niet openen.")
-    sys.exit(1)
+if not RASPICAM:
+    cap = cv2.VideoCapture(CAMERA_INDEX)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_SIZE[0])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_SIZE[1])
+
+    if not cap.isOpened():
+        print("❌ Kon de camera niet openen.")
+        sys.exit(1)
 
 # ✅ VideoWriter setup
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
