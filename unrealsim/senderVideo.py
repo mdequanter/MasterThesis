@@ -30,7 +30,7 @@ ANALYTICS = False  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
 WIDTH = 800
 HEIGHT = 400
-DISPLAY_FRAME = False
+DISPLAY_FRAME = True  # True = frame tonen, False = zwart scherm
 PLAY_SOUND = False  # True = geluid afspelen bij paddetectie
 FULLSCREEN = False  
 PATH_DETECTED = False  # Global variable to track if a path is detected
