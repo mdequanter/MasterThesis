@@ -90,6 +90,8 @@ print(f"JPEG_QUALITY: {JPEG_QUALITY}")
 print(f"width: {WIDTH}")
 print(f"height: {HEIGHT}")
 print(f"FULLSCREEN: {FULLSCREEN}")
+print(f"PLAY_SOUND: {PLAY_SOUND}")
+print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 
 
 
