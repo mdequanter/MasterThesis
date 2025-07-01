@@ -75,9 +75,9 @@ for arg in sys.argv[1:]:
         except ValueError:
             print("⚠️ Ongeldige HEIGHT waarde, standaard blijft:", HEIGHT)
     elif arg.startswith("PLAY_SOUND="):
-        PLAY_SOUND = int(arg.split("=")[1])
+        PLAY_SOUND = arg.split("=")[1]
     elif arg.startswith("DISPLAY_FRAME="):
-        DISPLAY_FRAME = int(arg.split("=")[1])
+        DISPLAY_FRAME = arg.split("=")[1]
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
 
