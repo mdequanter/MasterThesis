@@ -14,6 +14,11 @@ from cryptography.hazmat.backends import default_backend
 import os
 import math
 from datetime import datetime
+from playsound import playsound
+import simpleaudio as sa
+import threading
+import numpy as np
+
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
@@ -24,8 +29,12 @@ ANALYTICS = False  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
 WIDTH = 800
 HEIGHT = 400
+DISPLAY_FRAME = False
+PLAY_SOUND = False  # True = geluid afspelen bij paddetectie
 FULLSCREEN = False  
 PATH_DETECTED = False  # Global variable to track if a path is detected
+lastPathDetected = time.time()  # Timestamp of the last path detection
+
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -74,7 +83,7 @@ print(f"FULLSCREEN: {FULLSCREEN}")
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
-capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
+capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 1)
 frame_id = 0
 frame_records = {}
 latency_ms = 0
@@ -96,6 +105,13 @@ if ANALYTICS:
         ])
     acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [] }
     slot_start_time = time.time()
+
+def play_sound(sound_file):
+    def _play():
+        wave_obj = sa.WaveObject.from_wave_file(sound_file)
+        play_obj = wave_obj.play()
+        play_obj.wait_done()
+    threading.Thread(target=_play, daemon=True).start()
 
 def encrypt_data(plain_text):
     encrypt_start_time = time.time()
@@ -135,6 +151,14 @@ async def send_messages(websocket):
 
         frame = cv2.resize(frame, (WIDTH, HEIGHT))
         display = frame.copy()
+        if DISPLAY_FRAME:
+            display = frame.copy()
+        else:
+            # create a black display
+            display = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+        if (PATH_DETECTED == False):
+            display = frame.copy()
+
 
         fps_frame_count += 1
         if time.time() - fps_timer_start >= 1.0:
@@ -223,7 +247,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND
     while not should_exit:
         try:
             message = await websocket.recv()
@@ -233,8 +257,16 @@ async def receive_messages(websocket):
                 print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
+                PATH_DETECTED = True
+                lastPathDetected = time.time()
             if 'detected' in message_json:
-                PATH_DETECTED = message_json['detected']
+                if not message_json['detected']:
+                    if ((time.time() - lastPathDetected) > 1.0):
+                        PATH_DETECTED = False
+                        DIRECTION_ANGLE = None
+                        if (PLAY_SOUND):
+                            play_sound("sounds/beep.wav")
+                        lastPathDetected = time.time()
             if 'frame_id' in message_json:
                 FRAME_ID = message_json['frame_id']
                 received = time.time()
