@@ -20,6 +20,7 @@ import threading
 import numpy as np
 
 
+
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
@@ -33,8 +34,15 @@ DISPLAY_FRAME = False
 PLAY_SOUND = False  # True = geluid afspelen bij paddetectie
 FULLSCREEN = False  
 PATH_DETECTED = False  # Global variable to track if a path is detected
+RASPICAM = True  # True = Raspicam, False = webcam
 lastPathDetected = time.time()  # Timestamp of the last path detection
 
+
+if RASPICAM:
+    from picamera2 import Picamera2
+    # Initialiseer camera
+    picam2 = Picamera2()
+    picam2.start()
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -140,7 +148,13 @@ async def send_messages(websocket):
     while not should_exit:
         frame_id += 1
         frame_start = time.time()
-        ret, frame = capture.read()
+
+        if RASPICAM:
+            frame = picam2.capture_array()
+            ret= True
+        else:
+            ret, frame = capture.read()
+        
         if not ret:
             print("❌ Geen frame opgehaald")
             if USE_VIDEO:
