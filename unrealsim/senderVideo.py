@@ -171,11 +171,12 @@ async def send_messages(websocket):
 
         frame = cv2.resize(frame, (WIDTH, HEIGHT))
         display = frame.copy()
-        if DISPLAY_FRAME:
+        if DISPLAY_FRAME == True:
             display = frame.copy()
         else:
             # create a black display
             display = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+        
         if (PATH_DETECTED == False):
             display = frame.copy()
 
