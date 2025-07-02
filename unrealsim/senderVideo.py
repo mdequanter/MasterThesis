@@ -157,11 +157,12 @@ async def send_messages(websocket):
         frame_id += 1
         frame_start = time.time()
 
-        if RASPICAM:
-            frame = picam2.capture_array()
-            ret= True
-        else:
-            ret, frame = capture.read()
+        if (USE_VIDEO == False):
+            if RASPICAM:
+                frame = picam2.capture_array()
+                ret= True
+            else:
+                ret, frame = capture.read()
         
         if not ret:
             print("❌ Geen frame opgehaald")
