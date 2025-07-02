@@ -78,6 +78,8 @@ for arg in sys.argv[1:]:
         PLAY_SOUND = arg.split("=")[1]
     elif arg.startswith("DISPLAY_FRAME="):
         DISPLAY_FRAME = arg.split("=")[1]
+    elif arg.startswith("RASPICAM="):
+        RASPICAM = arg.split("=")[1]
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
 
