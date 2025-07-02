@@ -164,14 +164,10 @@ async def send_messages(websocket):
             else:
                 ret, frame = capture.read()
         
-        if not ret:
-            print("❌ Geen frame opgehaald")
-            if USE_VIDEO:
-                capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-            else:
-                break
-
+        if USE_VIDEO:
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            continue
+        
         frame = cv2.resize(frame, (WIDTH, HEIGHT))
         display = frame.copy()
         if DISPLAY_FRAME == False:
