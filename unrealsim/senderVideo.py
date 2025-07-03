@@ -23,26 +23,21 @@ import numpy as np
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
-VIDEO_PATH = "unrealsim/videos/UnrealParkRecording.mp4"
+VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
 MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 ANALYTICS = False  # 🔑 Analytics aan of uit
 JPEG_QUALITY = 50
-WIDTH = 800
-HEIGHT = 400
+WIDTH = 640
+HEIGHT = 480
 DISPLAY_FRAME = True  # True = frame tonen, False = zwart scherm
 PLAY_SOUND = False  # True = geluid afspelen bij paddetectie
 FULLSCREEN = False  
 PATH_DETECTED = False  # Global variable to track if a path is detected
 RASPICAM = True  # True = Raspicam, False = webcam
 lastPathDetected = time.time()  # Timestamp of the last path detection
-
-
-if RASPICAM:
-    from picamera2 import Picamera2
-    # Initialiseer camera
-    picam2 = Picamera2()
-    picam2.start()
+missedFrames = 0  # Counter for missed frames
+successFullFrames = 0
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -95,11 +90,16 @@ print(f"FULLSCREEN: {FULLSCREEN}")
 print(f"PLAY_SOUND: {PLAY_SOUND}")
 print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 
+if RASPICAM == True:
+    from picamera2 import Picamera2
+    # Initialiseer camera
+    picam2 = Picamera2()
+    picam2.start()
 
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
-capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 1)
+capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
 frame_id = 0
 frame_records = {}
 latency_ms = 0
@@ -116,10 +116,9 @@ if ANALYTICS:
             "datetime", "avg_latency_ms", "avg_fps", "avg_size_kb",
             "avg_compression_ms", "avg_encryption_ms",
             "resolution", "max_fps", "signaling_server",
-            "jpeg_quality", "width", "height",
-
+            "jpeg_quality", "width", "height","missed_frames","successful_frames"
         ])
-    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [] }
+    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "missed_frames": [], "successful_frames": [] }
     slot_start_time = time.time()
 
 def play_sound(sound_file):
@@ -141,7 +140,7 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -158,16 +157,19 @@ async def send_messages(websocket):
         frame_start = time.time()
 
         if (USE_VIDEO == False):
-            if RASPICAM:
+            if RASPICAM == True:
                 frame = picam2.capture_array()
                 ret= True
             else:
                 ret, frame = capture.read()
         
         if USE_VIDEO:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            continue
-        
+            #capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret, frame = capture.read()
+            if not ret or frame is None:
+                print("Frame niet beschikbaar, probeer volgende frame")
+                continue
+
         frame = cv2.resize(frame, (WIDTH, HEIGHT))
         display = frame.copy()
         if DISPLAY_FRAME == False:
@@ -200,8 +202,10 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"path detected: {PATH_DETECTED}", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        
-
+        cv2.putText(display, f"missed frames: {missedFrames}", (10, 150),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"successful frames: {successFullFrames}", (10, 180),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         cv2.imshow("Video Stream", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -241,10 +245,14 @@ async def send_messages(websocket):
                         round(sum(acc["encryption"]) / len(acc["encryption"]), 2) if acc["encryption"] else 0,
                         f"{WIDTH}x{HEIGHT}",
                         MAX_FPS,
-                        SIGNALING_SERVER
+                        SIGNALING_SERVER,
+                        missedFrames,
+                        successFullFrames
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
+                missedFrames = 0  # Reset missed frames counter every 10 seconds
+                successFullFrames = 0  # Reset successful frames counter every 10 seconds
 
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         message = {
@@ -254,7 +262,8 @@ async def send_messages(websocket):
             "size_kb": size_kb,
             "compression_time_ms": compression_time,
             "encryption_time_ms": encryption_time,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "missed_frames": missedFrames
         }
         frame_records[frame_id] = {'timestamp': time.time()}
         await websocket.send(json.dumps(message))
@@ -264,7 +273,7 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND, missedFrames, successFullFrames
     while not should_exit:
         try:
             message = await websocket.recv()
@@ -276,8 +285,10 @@ async def receive_messages(websocket):
                 DIRECTION_ANGLE = message_json['direction_angle']
                 PATH_DETECTED = True
                 lastPathDetected = time.time()
+                successFullFrames += 1
             if 'detected' in message_json:
                 if not message_json['detected']:
+                    missedFrames += 1
                     if ((time.time() - lastPathDetected) > 1.0):
                         PATH_DETECTED = False
                         DIRECTION_ANGLE = None

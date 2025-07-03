@@ -21,8 +21,8 @@ async def signaling(websocket):
         print(f"❌ Client verwijderd: {websocket.remote_address}")
 
 async def start_server():
-    print("🚀 WebSocket Signaling Server wordt gestart op ws://0.0.0.0:9000")
-    async with websockets.serve(signaling, "0.0.0.0", 9000): 
+    print("🚀 WebSocket Signaling Server wordt gestart op ws://0.0.0.0:9001")
+    async with websockets.serve(signaling, "0.0.0.0", 9001): 
         await asyncio.Future()  # Houd de server actief
 
 if __name__ == "__main__":
