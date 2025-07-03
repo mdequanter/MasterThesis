@@ -14,7 +14,7 @@ from ultralytics import YOLO
 
 # ✅ Settings
 screenOutput = True
-MODEL = 'unrealsim/models/blindnavUnreal.pt'
+MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.85
 frame_times = deque(maxlen=100)
