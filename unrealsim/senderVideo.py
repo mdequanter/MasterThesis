@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import json
+from sympy import true
 import websockets
 import time
 import cv2
@@ -38,6 +39,10 @@ RASPICAM = True  # True = Raspicam, False = webcam
 lastPathDetected = time.time()  # Timestamp of the last path detection
 missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
+nr_frames = 0  # Counter for successful frames
+REPLAY_VIDEO = False  # True = replay video after end, False = stop after last frame
+
+
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -75,6 +80,8 @@ for arg in sys.argv[1:]:
         DISPLAY_FRAME = arg.split("=")[1]
     elif arg.startswith("RASPICAM="):
         RASPICAM = arg.split("=")[1]
+    elif arg.startswith("REPLAY_VIDEO="):
+        REPLAY_VIDEO = arg.split("=")[1]
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
 
@@ -116,9 +123,9 @@ if ANALYTICS:
             "datetime", "avg_latency_ms", "avg_fps", "avg_size_kb",
             "avg_compression_ms", "avg_encryption_ms",
             "resolution", "max_fps", "signaling_server",
-            "jpeg_quality", "width", "height","missed_frames","successful_frames"
+            "jpeg_quality", "width", "height","missed_frames","successful_frames", "last_frame_id"
         ])
-    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "missed_frames": [], "successful_frames": [] }
+    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "missed_frames": [], "successful_frames": [], "last_frame_id": None   }
     slot_start_time = time.time()
 
 def play_sound(sound_file):
@@ -129,18 +136,19 @@ def play_sound(sound_file):
     threading.Thread(target=_play, daemon=True).start()
 
 def encrypt_data(plain_text):
-    encrypt_start_time = time.time()
+    encrypt_start_time = time.perf_counter()
     iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(AES_KEY), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     padder = padding.PKCS7(algorithms.AES.block_size).padder()
     padded_data = padder.update(plain_text) + padder.finalize()
     encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-    encrypt_end_time = time.time()
-    return base64.b64encode(iv + encrypted_data).decode('utf-8'), (encrypt_end_time - encrypt_start_time) * 1000
+    encrypt_end_time = time.perf_counter()
+    encryption_time = (encrypt_end_time - encrypt_start_time) * 1_000  # in milliseconds
+    return base64.b64encode(iv + encrypted_data).decode('utf-8'), encryption_time
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -152,6 +160,7 @@ async def send_messages(websocket):
     fps_timer_start = time.time()
     fps = 0.0
 
+
     while not should_exit:
         frame_id += 1
         frame_start = time.time()
@@ -162,10 +171,13 @@ async def send_messages(websocket):
                 ret= True
             else:
                 ret, frame = capture.read()
+
         
         if USE_VIDEO:
             #capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = capture.read()
+            nr_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
             if not ret or frame is None:
                 print("Frame niet beschikbaar, probeer volgende frame")
                 continue
@@ -206,24 +218,45 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"successful frames: {successFullFrames}", (10, 180),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        if (USE_VIDEO == True): 
+            cv2.putText(display, f"frame id: {frame_id} / {nr_frames}", (10, 210),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        else:
+            cv2.putText(display, f"frame id: {frame_id}", (10, 210),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        cv2.imshow("Video Stream", display)
+        if (frame_id >= nr_frames and USE_VIDEO and REPLAY_VIDEO == False):
+            print("✅ Alle frames van de video zijn verzonden, opnieuw beginnen.")
+            should_exit = True
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             print("⏹️ Afsluiten door gebruiker")
             should_exit = True
             break
 
+        
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        t0 = time.perf_counter()
         pil_image = Image.fromarray(frame_rgb)
         compressed_image_io = io.BytesIO()
-        t0 = time.time()
         pil_image.save(compressed_image_io, format="JPEG", quality=JPEG_QUALITY)
-        t1 = time.time()
+        t1 = time.perf_counter()
         compressed_bytes = compressed_image_io.getvalue()
         size_kb = len(compressed_bytes) / 1024
-        compression_time = (t1 - t0) * 1000
+        compression_time = (t1 - t0) * 1_000  # microseconds
+
 
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
+
+        cv2.putText(display, f"Encryption time: {encryption_time:.3f} ms", (10, 240),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"Compression time: {compression_time:.3f} ms", (10, 270),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        cv2.imshow("Video Stream", display)
+
+
 
         if ANALYTICS:
             acc["latency"].append(latency_ms)
@@ -247,14 +280,14 @@ async def send_messages(websocket):
                         MAX_FPS,
                         SIGNALING_SERVER,
                         missedFrames,
-                        successFullFrames
+                        successFullFrames,
+                        frame_id
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
                 missedFrames = 0  # Reset missed frames counter every 10 seconds
                 successFullFrames = 0  # Reset successful frames counter every 10 seconds
 
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         message = {
             "frame_id": frame_id,
             "data": encrypted_data,
@@ -318,6 +351,7 @@ try:
     asyncio.run(main())
 except KeyboardInterrupt:
     print("⏹️ Afsluiten door KeyboardInterrupt...")
+    exit(0)
 finally:
     capture.release()
     cv2.destroyAllWindows()
