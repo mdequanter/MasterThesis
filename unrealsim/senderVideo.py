@@ -19,6 +19,7 @@ from playsound import playsound
 import simpleaudio as sa
 import threading
 import numpy as np
+import psutil
 
 
 # ✅ Standaardinstellingen
@@ -40,13 +41,14 @@ missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
 REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
-LATENCY_GUARDING = True
+LATENCY_GUARDING = True # Used ABR advanced Bitrate mechanism
 FRAMELIMIT = 10000
 REQUESTED_LATENCY = 120  # requested latency in ms
 
 MAX_JPEG_QUALITY = JPEG_QUALITY
 INFERENCE_TIME = 0
 LATEST_POWER = 0
+POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
 
 
 # ✅ Commandline parsing
@@ -91,6 +93,11 @@ for arg in sys.argv[1:]:
         LATENCY_GUARDING = arg.split("=")[1]
     elif arg.startswith("REQUESTED_LATENCY="):
         REQUESTED_LATENCY = arg.split("=")[1]
+    elif arg.startswith("POWERCPU="):
+        POWERCPU = int(arg.split("=")[1])
+    elif arg.startswith("REQUESTED_LATENCY="):
+        REQUESTED_LATENCY = arg.split("=")[1]
+
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
 
@@ -106,6 +113,8 @@ print(f"FULLSCREEN: {FULLSCREEN}")
 print(f"PLAY_SOUND: {PLAY_SOUND}")
 print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 print(f"LATENCY_GUARDING: {LATENCY_GUARDING}" )
+print(f"POWERCPU: {POWERCPU}" )
+
 
 if RASPICAM == True:
     from picamera2 import Picamera2
@@ -169,7 +178,8 @@ def mqtt_thread():
     client.loop_forever()
 
 # Start MQTT in a separate thread
-threading.Thread(target=mqtt_thread, daemon=True).start()
+if (POWERCPU == 0) :
+    threading.Thread(target=mqtt_thread, daemon=True).start()
 
 def play_sound(sound_file):
     def _play():
@@ -297,6 +307,10 @@ async def send_messages(websocket):
 
 
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
+
+        if (POWERCPU > 0) :
+            cpu_percent = psutil.cpu_percent(interval=None)
+            LATEST_POWER = POWERCPU * cpu_percent
 
         cv2.putText(display, f"Encryption time: {encryption_time:.3f} ms", (10, 240),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
