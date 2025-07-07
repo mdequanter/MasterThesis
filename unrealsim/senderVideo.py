@@ -275,7 +275,7 @@ async def send_messages(websocket):
             
         if (MAX_FPS > 0) :
             displayFPS = MAX_FPS
-        else :
+        elif (MAX_FPS <= -1) :
             displayFPS = round(1 / (abs(MAX_FPS)),2)
 
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
