@@ -209,7 +209,7 @@ async def send_messages(websocket):
     if (MAX_FPS > 0) :
         frame_delay = 1.0 / MAX_FPS
     else :
-        frame_delay = 1.0 / (1/MAX_FPS)
+        frame_delay = 1.0 * abs(MAX_FPS)
 
 
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
