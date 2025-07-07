@@ -345,10 +345,10 @@ async def send_messages(websocket):
         if (LATENCY_GUARDING == "True") :
             if frame_id % 10 == 0:
 
-                if (INFERENCE_TIME > REQUESTED_LATENCY) :
+                if (INFERENCE_TIME > int(REQUESTED_LATENCY)) :
                     latencyTreshhold = INFERENCE_TIME
                 else :
-                    latencyTreshhold = REQUESTED_LATENCY
+                    latencyTreshhold = int(REQUESTED_LATENCY)
 
 
                 if ((latency_ms > int(latencyTreshhold)*1.1) ) :
