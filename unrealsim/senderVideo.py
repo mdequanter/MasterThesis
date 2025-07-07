@@ -202,7 +202,7 @@ def encrypt_data(plain_text):
 
 async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH,LATENCY_GUARDING
-    global FRAMELIMIT,should_exit,REQUESTED_LATENCY,LATEST_POWER
+    global FRAMELIMIT,should_exit,REQUESTED_LATENCY,LATEST_POWER,POWERCPU
     if ANALYTICS:
         global acc, slot_start_time
 
