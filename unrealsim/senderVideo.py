@@ -206,7 +206,12 @@ async def send_messages(websocket):
     if ANALYTICS:
         global acc, slot_start_time
 
-    frame_delay = 1.0 / MAX_FPS
+    if (MAX_FPS > 0) :
+        frame_delay = 1.0 / MAX_FPS
+    else :
+        frame_delay = 1.0 / (1/MAX_FPS)
+
+
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
     if FULLSCREEN:
         cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -334,8 +339,8 @@ async def send_messages(websocket):
                     MAX_FPS = MAX_FPS - 1
                     if JPEG_QUALITY < 10:
                         JPEG_QUALITY = 10
-                    if MAX_FPS < 1 :
-                        MAX_FPS = 1
+                    if MAX_FPS < -10 :
+                        MAX_FPS = -10
                 elif(latency_ms < int(REQUESTED_LATENCY) - 2) :
                     JPEG_QUALITY = JPEG_QUALITY + 1
                     MAX_FPS = MAX_FPS + 1
