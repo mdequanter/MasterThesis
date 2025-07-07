@@ -211,7 +211,6 @@ async def send_messages(websocket):
     else :
         frame_delay = 1.0 * abs(MAX_FPS)
 
-    print(frame_delay) 
 
 
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
@@ -225,7 +224,11 @@ async def send_messages(websocket):
     while not should_exit:
         frame_id += 1
         frame_start = time.time()
-        frame_delay = 1.0 / MAX_FPS
+
+        if (MAX_FPS > 0) :
+            frame_delay = 1.0 / MAX_FPS
+        else :
+            frame_delay = 1.0 * abs(MAX_FPS)
 
         if (USE_VIDEO == False):
             if RASPICAM == True:
