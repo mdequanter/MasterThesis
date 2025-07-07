@@ -353,6 +353,7 @@ async def send_messages(websocket):
                         JPEG_QUALITY = MAX_JPEG_QUALITY
                     if (MAX_FPS > 30) :
                         MAX_FPS = 30
+            print (MAX_FPS)
 
         if ANALYTICS:
             acc["latency"].append(latency_ms)
