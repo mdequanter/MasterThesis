@@ -116,11 +116,10 @@ async def receive_messages():
                     angle_rad = np.arctan2(dy, dx)
                     direction_angle = np.degrees(angle_rad)
                     detected = True
-                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2), "frame_id": frame_id}))
+                    await websocket.send(json.dumps({"direction_angle": round(direction_angle, 2),"inference_time_ms": inference_time, "frame_id": frame_id}))
                 else:
-                    await websocket.send(json.dumps({"detected": False, "frame_id": frame_id}))
+                    await websocket.send(json.dumps({"detected": False,"inference_time": inference_time, "frame_id": frame_id}))
 
-                
 
                 current_time = time.time()
                 frame_times.append(current_time)
@@ -150,13 +149,13 @@ async def receive_messages():
 
                 if screenOutput:
                     cv2.putText(overlay, f"Time: {message_json['timestamp']}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(overlay, f"Resolution: {message_json['resolution']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(overlay, f"Size: {round(message_json['size_kb'], 2)} KB", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(overlay, f"Comp. Time({quality})%: {round(message_json['compression_time_ms'], 2)} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(overlay, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(overlay, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-                    cv2.putText(overlay, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-                    cv2.putText(overlay, f"Direction: {round(direction_angle,2)} waarde", (10, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    #cv2.putText(overlay, f"Resolution: {message_json['resolution']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Size: {round(message_json['size_kb'], 2)} KB", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Comp. Time({quality})%: {round(message_json['compression_time_ms'], 2)} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    #cv2.putText(overlay, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    cv2.putText(overlay, f"Direction: {round(direction_angle,2)} degrees", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                     cv2.imshow("Ontvangen + Segmentatie + Richting", overlay)
                     cv2.waitKey(1)
 

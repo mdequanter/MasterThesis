@@ -21,7 +21,6 @@ import threading
 import numpy as np
 
 
-
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
@@ -40,8 +39,14 @@ lastPathDetected = time.time()  # Timestamp of the last path detection
 missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
-REPLAY_VIDEO = False  # True = replay video after end, False = stop after last frame
+REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
+LATENCY_GUARDING = True
+FRAMELIMIT = 10000
+REQUESTED_LATENCY = 120  # requested latency in ms
 
+MAX_JPEG_QUALITY = JPEG_QUALITY
+INFERENCE_TIME = 0
+LATEST_POWER = 0
 
 
 # ✅ Commandline parsing
@@ -82,6 +87,10 @@ for arg in sys.argv[1:]:
         RASPICAM = arg.split("=")[1]
     elif arg.startswith("REPLAY_VIDEO="):
         REPLAY_VIDEO = arg.split("=")[1]
+    elif arg.startswith("LATENCY_GUARDING="):
+        LATENCY_GUARDING = arg.split("=")[1]
+    elif arg.startswith("REQUESTED_LATENCY="):
+        REQUESTED_LATENCY = arg.split("=")[1]
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
 
@@ -96,6 +105,7 @@ print(f"height: {HEIGHT}")
 print(f"FULLSCREEN: {FULLSCREEN}")
 print(f"PLAY_SOUND: {PLAY_SOUND}")
 print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
+print(f"LATENCY_GUARDING: {LATENCY_GUARDING}" )
 
 if RASPICAM == True:
     from picamera2 import Picamera2
@@ -120,13 +130,46 @@ if ANALYTICS:
     with open(csv_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow([
-            "datetime", "avg_latency_ms", "avg_fps", "avg_size_kb",
-            "avg_compression_ms", "avg_encryption_ms",
-            "resolution", "max_fps", "signaling_server",
-            "jpeg_quality", "width", "height","missed_frames","successful_frames", "last_frame_id"
+            "datetime", "signaling_server","resolution","max_fps",
+            "jpeg_quality", "avg_latency_ms", "avg_fps", "avg_size_kb",
+            "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","missed_frames","successful_frames", "last_frame_id"
         ])
-    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "missed_frames": [], "successful_frames": [], "last_frame_id": None   }
+ 
+    acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "inference" : [], "poweruse" : [] }
     slot_start_time = time.time()
+
+
+
+# Global variable to store power reading
+latest_power = "N/A"
+
+def mqtt_thread():
+    
+    import paho.mqtt.client as mqtt
+    
+    global LATEST_POWER
+
+    def on_connect(client, userdata, flags, rc):
+        if rc == 0:
+            print("✅ Connected to MQTT broker")
+            client.subscribe("MasterThesis/edgepower")
+        else:
+            print(f"❌ Failed to connect, return code {rc}")
+
+    def on_message(client, userdata, msg):
+        global LATEST_POWER
+        LATEST_POWER = int(msg.payload.decode())
+        #print (f"latest power: {LATEST_POWER}")
+
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    client.connect("broker.emqx.io", 1883, 60)
+    client.loop_forever()
+
+# Start MQTT in a separate thread
+threading.Thread(target=mqtt_thread, daemon=True).start()
 
 def play_sound(sound_file):
     def _play():
@@ -148,7 +191,8 @@ def encrypt_data(plain_text):
     return base64.b64encode(iv + encrypted_data).decode('utf-8'), encryption_time
 
 async def send_messages(websocket):
-    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO
+    global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH,LATENCY_GUARDING
+    global FRAMELIMIT,should_exit,REQUESTED_LATENCY,LATEST_POWER
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -164,6 +208,7 @@ async def send_messages(websocket):
     while not should_exit:
         frame_id += 1
         frame_start = time.time()
+        frame_delay = 1.0 / MAX_FPS
 
         if (USE_VIDEO == False):
             if RASPICAM == True:
@@ -210,7 +255,7 @@ async def send_messages(websocket):
 
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"FPS: {fps:.2f}", (10, 90),
+        cv2.putText(display, f"FPS: {fps:.2f}, MAX {MAX_FPS}", (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"path detected: {PATH_DETECTED}", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
@@ -225,14 +270,18 @@ async def send_messages(websocket):
             cv2.putText(display, f"frame id: {frame_id}", (10, 210),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        if (frame_id >= nr_frames and USE_VIDEO and REPLAY_VIDEO == False):
-            print("✅ Alle frames van de video zijn verzonden, opnieuw beginnen.")
-            should_exit = True
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            print("⏹️ Afsluiten door gebruiker")
+        if ((frame_id >= nr_frames or frame_id > FRAMELIMIT) and USE_VIDEO and REPLAY_VIDEO == False):
+            print("✅ Alle frames van de video zijn, druk Ctrl-x in terminal om programma af te sluiten")
+            cv2.destroyAllWindows()
             should_exit = True
             break
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            print("⏹️ Afsluiten door gebruiker, druk Ctrl-x in terminal om programma af te sluiten")
+            cv2.destroyAllWindows()
+            should_exit = True
+            break
+
 
         
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -253,10 +302,33 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"Compression time: {compression_time:.3f} ms", (10, 270),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"JPG QUALITY: {JPEG_QUALITY} %, {size_kb:.2f} kb ", (10, 300),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"Inference time: {INFERENCE_TIME:.3f} ms", (10, 330),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(display, f"Power use: {LATEST_POWER} W", (10, 360),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
 
         cv2.imshow("Video Stream", display)
 
 
+        if (LATENCY_GUARDING == "True") :
+            if frame_id % 30 == 0:
+                if (latency_ms > int(REQUESTED_LATENCY) + 2 ) :
+                    JPEG_QUALITY = JPEG_QUALITY - 1
+                    MAX_FPS = MAX_FPS - 1
+                    if JPEG_QUALITY < 10:
+                        JPEG_QUALITY = 10
+                    if MAX_FPS < 1 :
+                        MAX_FPS = 1
+                elif(latency_ms < int(REQUESTED_LATENCY) - 2) :
+                    JPEG_QUALITY = JPEG_QUALITY + 1
+                    MAX_FPS = MAX_FPS + 1
+                    if (JPEG_QUALITY > MAX_JPEG_QUALITY):
+                        JPEG_QUALITY = MAX_JPEG_QUALITY
+                    if (MAX_FPS > 30) :
+                        MAX_FPS = 30
 
         if ANALYTICS:
             acc["latency"].append(latency_ms)
@@ -264,6 +336,8 @@ async def send_messages(websocket):
             acc["size"].append(size_kb)
             acc["compression"].append(compression_time)
             acc["encryption"].append(encryption_time)
+            acc["inference"].append(INFERENCE_TIME)
+            acc["poweruse"].append(LATEST_POWER)
 
             if time.time() - slot_start_time >= 10.0:
                 with open(csv_filename, mode='a', newline='') as file:
@@ -271,17 +345,20 @@ async def send_messages(websocket):
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     writer.writerow([
                         now,
+                        SIGNALING_SERVER,
+                        f"{WIDTH}x{HEIGHT}",
+                        MAX_FPS,
+                        JPEG_QUALITY,
                         round(sum(acc["latency"]) / len(acc["latency"]), 2) if acc["latency"] else 0,
                         round(sum(acc["fps"]) / len(acc["fps"]), 2) if acc["fps"] else 0,
                         round(sum(acc["size"]) / len(acc["size"]), 2) if acc["size"] else 0,
                         round(sum(acc["compression"]) / len(acc["compression"]), 2) if acc["compression"] else 0,
                         round(sum(acc["encryption"]) / len(acc["encryption"]), 2) if acc["encryption"] else 0,
-                        f"{WIDTH}x{HEIGHT}",
-                        MAX_FPS,
-                        SIGNALING_SERVER,
+                        round(sum(acc["poweruse"]) / len(acc["poweruse"]), 2) if acc["poweruse"] else 0,
+                        round(sum(acc["inference"]) / len(acc["inference"]), 2) if acc["inference"] else 0,
                         missedFrames,
                         successFullFrames,
-                        frame_id
+                        frame_id,
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
@@ -306,14 +383,16 @@ async def send_messages(websocket):
         await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
-    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND, missedFrames, successFullFrames
+    global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND, missedFrames, successFullFrames,LATENCY_BASED_QUALITY,MAX_FPS
+    global INFERENCE_TIME
     while not should_exit:
         try:
             message = await websocket.recv()
             message_json = json.loads(message)
-            if 'quality' in message_json and (1 <= message_json['quality'] <= 100):
-                JPEG_QUALITY = message_json['quality']
-                print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
+            if (LATENCY_GUARDING == False) :  # only use server based quality selection when no latency optimalization is needed.
+                if 'quality' in message_json and (1 <= message_json['quality'] <= 100):
+                    JPEG_QUALITY = message_json['quality']
+                    print(f"SET JPEG_QUALITY: {JPEG_QUALITY}")
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
                 PATH_DETECTED = True
@@ -333,6 +412,12 @@ async def receive_messages(websocket):
                 received = time.time()
                 if FRAME_ID in frame_records:
                     latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
+            if 'inference_time_ms' in message_json:
+                INFERENCE_TIME = message_json['inference_time_ms']
+                received = time.time()
+                if FRAME_ID in frame_records:
+                    latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
+
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Verbinding met server gesloten")
             should_exit = True
@@ -351,8 +436,6 @@ try:
     asyncio.run(main())
 except KeyboardInterrupt:
     print("⏹️ Afsluiten door KeyboardInterrupt...")
-    exit(0)
 finally:
     capture.release()
-    cv2.destroyAllWindows()
     print("✅ Programma netjes afgesloten.")
