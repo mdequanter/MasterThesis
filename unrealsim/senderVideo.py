@@ -211,6 +211,8 @@ async def send_messages(websocket):
     else :
         frame_delay = 1.0 * abs(MAX_FPS)
 
+    print(frame_delay) 
+
 
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
     if FULLSCREEN:
