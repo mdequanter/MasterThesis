@@ -344,14 +344,21 @@ async def send_messages(websocket):
 
         if (LATENCY_GUARDING == "True") :
             if frame_id % 10 == 0:
-                if (latency_ms > int(INFERENCE_TIME)*1.1 ) :
+
+                if (INFERENCE_TIME > REQUESTED_LATENCY) :
+                    latencyTreshhold = INFERENCE_TIME
+                else :
+                    latencyTreshhold = REQUESTED_LATENCY
+
+
+                if ((latency_ms > int(latencyTreshhold)*1.1) ) :
                     JPEG_QUALITY = JPEG_QUALITY - 1
                     MAX_FPS = MAX_FPS - 1
                     if JPEG_QUALITY < 10:
                         JPEG_QUALITY = 10
                     if MAX_FPS < -10 :
                         MAX_FPS = -10
-                elif(latency_ms < int(REQUESTED_LATENCY)*0.9) :
+                elif(latency_ms < int(latencyTreshhold)*0.9) :
                     JPEG_QUALITY = JPEG_QUALITY + 1
                     MAX_FPS = MAX_FPS + 1
                     if (JPEG_QUALITY > MAX_JPEG_QUALITY):
