@@ -29,6 +29,8 @@ for arg in sys.argv[1:]:
             MODEL = arg.split("=")[1]
         except ValueError:
             print("⚠️ Ongeldige MODEL waarde, standaard blijft:", MODEL)
+    if arg.startswith("OUTPUT="):
+        screenOutput = arg.split("=", 1)[1]
 
 print(f"Signaling Server: {SIGNALING_SERVER}")
 print(f"MODEL: {MODEL}")
