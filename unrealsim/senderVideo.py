@@ -310,7 +310,7 @@ async def send_messages(websocket):
 
         if (POWERCPU > 0) :
             cpu_percent = psutil.cpu_percent(interval=None)
-            LATEST_POWER = POWERCPU * cpu_percent
+            LATEST_POWER = POWERCPU * cpu_percent * 0.01
 
         cv2.putText(display, f"Encryption time: {encryption_time:.3f} ms", (10, 240),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
