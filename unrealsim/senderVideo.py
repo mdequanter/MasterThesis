@@ -28,6 +28,7 @@ VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
 MAX_FPS = 20
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 ANALYTICS = False  # 🔑 Analytics aan of uit
+ANALYTICSFILE = 'benchmark'
 JPEG_QUALITY = 50
 WIDTH = 640
 HEIGHT = 480
@@ -42,7 +43,7 @@ successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
 REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
 LATENCY_GUARDING = True # Used ABR advanced Bitrate mechanism
-FRAMELIMIT = 10000
+FRAMELIMIT = 5000
 REQUESTED_LATENCY = 120  # requested latency in ms
 
 MAX_JPEG_QUALITY = JPEG_QUALITY
@@ -95,6 +96,8 @@ for arg in sys.argv[1:]:
         REQUESTED_LATENCY = arg.split("=")[1]
     elif arg.startswith("POWERCPU="):
         POWERCPU = int(arg.split("=")[1])
+    elif arg.startswith("ANALYTICSFILE="):
+        ANALYTICSFILE = arg.split("=")[1]
     elif arg.startswith("REQUESTED_LATENCY="):
         REQUESTED_LATENCY = arg.split("=")[1]
 
@@ -135,11 +138,11 @@ should_exit = False
 if ANALYTICS:
     os.makedirs("unrealsim/analytics", exist_ok=True)
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filename = f"unrealsim/analytics/benchmark_{timestamp_str}.csv"
+    csv_filename = f"unrealsim/analytics/{ANALYTICSFILE}_{timestamp_str}.csv"
     with open(csv_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow([
-            "datetime", "signaling_server","resolution","max_fps",
+            "datetime", "signaling_server","resolution","max_fps","latency_request_ms",
             "jpeg_quality", "avg_latency_ms", "avg_fps", "avg_size_kb",
             "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","missed_frames","successful_frames", "last_frame_id"
         ])
@@ -343,7 +346,7 @@ async def send_messages(websocket):
 
 
         if (LATENCY_GUARDING == "True") :
-            if frame_id % 10 == 0:
+            if frame_id % 10  == 0:
 
                 if (INFERENCE_TIME > int(REQUESTED_LATENCY)) :
                     latencyTreshhold = INFERENCE_TIME
@@ -375,7 +378,7 @@ async def send_messages(websocket):
             acc["inference"].append(INFERENCE_TIME)
             acc["poweruse"].append(LATEST_POWER)
 
-            if time.time() - slot_start_time >= 10.0:
+            if time.time() - slot_start_time >= 1.0:
                 with open(csv_filename, mode='a', newline='') as file:
                     writer = csv.writer(file)
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -384,6 +387,7 @@ async def send_messages(websocket):
                         SIGNALING_SERVER,
                         f"{WIDTH}x{HEIGHT}",
                         MAX_FPS,
+                        REQUESTED_LATENCY,
                         JPEG_QUALITY,
                         round(sum(acc["latency"]) / len(acc["latency"]), 2) if acc["latency"] else 0,
                         round(sum(acc["fps"]) / len(acc["fps"]), 2) if acc["fps"] else 0,
