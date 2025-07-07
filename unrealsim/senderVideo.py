@@ -272,10 +272,15 @@ async def send_messages(websocket):
             cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
             cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            
+        if (MAX_FPS > 0) :
+            displayFPS = MAX_FPS
+        else :
+            displayFPS = 1 / (abs(MAX_FPS))
 
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"FPS: {fps:.2f}, MAX {MAX_FPS}", (10, 90),
+        cv2.putText(display, f"FPS: {fps:.2f}, MAX {displayFPS}", (10, 90),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"path detected: {PATH_DETECTED}", (10, 120),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
