@@ -22,7 +22,7 @@ import numpy as np
 import psutil
 import random
 
-fps_choices = [8,10,12,14,16,18,20,22,24,26,28,30]  # the first one is only used to stabilize the system.
+fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
