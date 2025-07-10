@@ -26,7 +26,7 @@ HEIGHT = 480
 DISPLAY_FRAME = False
 RASPICAM = False
 REPLAY_VIDEO = False
-FRAMELIMIT = 17000
+FRAMELIMIT = 3000
 MODEL_PATH = "unrealsim/models/unrealsim.pt"
 POWERCPU = 0
 framesPerfps = 100
@@ -121,8 +121,8 @@ if ANALYTICS:
             "avg_fps",
             "avg_size_kb",
             "avg_latency_ms",
-            "inference_time_ms",
-            "processing_time_ms",
+            "inference_ms",
+            "processing_ms",
             "poweruse_W",
             "queuesize",
             "frame_id"
@@ -143,16 +143,6 @@ inference_time_ms = 0
 while True:
     frame_id += 1
     frame_start = time.time()
-
-    if prev_frame_time is not None:
-        latency_ms = (frame_start - prev_frame_time) * 1000
-    else:
-        latency_ms = 0
-    prev_frame_time = frame_start
-
-
-    processing_ms = latency_ms - inference_time_ms
-
     currentFrameCount += 1
 
     if USE_VIDEO:
@@ -229,6 +219,25 @@ while True:
     compressed_bytes = compressed_image_io.getvalue()
     size_kb = len(compressed_bytes) / 1024
 
+    if DISPLAY_FRAME == True:
+        display = overlay.copy()
+        cv2.putText(display, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.putText(display, f"Inference: {inference_time_ms:.1f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.putText(display, f"Processing: {processing_ms:.1f} ms", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.putText(display, f"End-to-End-Latency: {latency_ms:.1f} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        if direction_angle is not None:
+            cv2.putText(display, f"Direction: {direction_angle:.1f} deg", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.putText(display, f"Power: {poweruse} W", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+        cv2.imshow("Local Inference", display)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
+    frame_time = (time.time() - frame_start)*1000
+
+    latency_ms = frame_time
+    processing_ms = frame_time - inference_time_ms
+
     acc["fps"].append(fps)
     acc["inference"].append(inference_time_ms)
     acc["size"].append(size_kb)
@@ -259,20 +268,6 @@ while True:
         fps_timer = time.time()
         fps_count = 0
 
-    if DISPLAY_FRAME == True:
-        display = overlay.copy()
-        cv2.putText(display, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.putText(display, f"Inference: {inference_time_ms:.1f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.putText(display, f"Processing: {processing_ms:.1f} ms", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.putText(display, f"End-to-End-Latency: {latency_ms:.1f} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        if direction_angle is not None:
-            cv2.putText(display, f"Direction: {direction_angle:.1f} deg", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.putText(display, f"Power: {poweruse} W", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-        cv2.imshow("Local Inference", display)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    frame_time = time.time() - frame_start
 
     if USE_VIDEO and frame_id >= FRAMELIMIT:
         break
