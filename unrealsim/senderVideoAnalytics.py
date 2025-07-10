@@ -23,6 +23,7 @@ import psutil
 import random
 
 fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
+fps_choices = [-5,-5,-4,-3,-2,-1,1,2]  # the first one is only used to stabilize the system.
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
@@ -51,6 +52,8 @@ INFERENCE_TIME = 0
 LATEST_POWER = 0
 POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
 QUEUESIZE = 0
+
+framesPerfps = 100
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -198,7 +201,7 @@ def encrypt_data(plain_text):
 
 async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH
-    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU
+    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -241,7 +244,7 @@ async def send_messages(websocket):
 
         currentFrameCount+=1
 
-        if currentFrameCount >=300 :
+        if currentFrameCount >= framesPerfps :
             currentFPS+=1
             currentFrameCount = 0
             if (currentFPS >= nrFps):
