@@ -23,7 +23,7 @@ import psutil
 import random
 
 fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
-fps_choices = [-5,-5,-4,-3,-2,-1,1,2]  # the first one is only used to stabilize the system.
+fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
