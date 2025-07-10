@@ -259,7 +259,7 @@ while True:
         fps_timer = time.time()
         fps_count = 0
 
-    if DISPLAY_FRAME:
+    if DISPLAY_FRAME == True:
         display = overlay.copy()
         cv2.putText(display, f"FPS: {fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
         cv2.putText(display, f"Inference: {inference_time_ms:.1f} ms", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
