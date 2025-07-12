@@ -13,7 +13,7 @@ from collections import deque
 from ultralytics import YOLO
 
 # ✅ Settings
-screenOutput = False
+screenOutput = True
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.85
