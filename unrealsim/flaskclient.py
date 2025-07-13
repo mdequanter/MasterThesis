@@ -137,4 +137,4 @@ def process_frame():
     return jsonify({'image': encoded_result})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=9005, debug=True)
