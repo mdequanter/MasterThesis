@@ -13,79 +13,71 @@ SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 
 HTML_PAGE = """
 <!DOCTYPE html>
-<html>
-<head>
-  <title>Live Webcam Inference</title>
-  <style>
-    video, canvas {
-      max-width: 90%;
-      margin: 10px;
-    }
-  </style>
-</head>
 <body>
-  <h2>Live Webcam Inference</h2>
-  <video id="video" autoplay></video><br>
-  <canvas id="canvas"></canvas><br>
-<script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const switchButton = document.createElement('button');
-switchButton.textContent = "Switch Camera";
-document.body.insertBefore(switchButton, video);
+  <h2>Live Inference</h2>
+  <button id="switchButton">Switch Camera</button><br>
+  <canvas id="canvas"></canvas>
 
-// Default to front camera
-let currentFacingMode = "user";
-let currentStream = null;
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const switchButton = document.getElementById('switchButton');
 
-function startCamera(facingMode) {
-  if (currentStream) {
-    // Stop any existing tracks
-    currentStream.getTracks().forEach(track => track.stop());
-  }
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facingMode }
-  }).then(stream => {
-    currentStream = stream;
-    video.srcObject = stream;
-  }).catch(err => {
-    console.error("Error accessing camera:", err);
-  });
-}
+    // Hidden video element (not displayed)
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', ''); // Important for iOS
+    video.style.display = 'none';
+    document.body.appendChild(video);
 
-// Start initial camera
-startCamera(currentFacingMode);
+    let currentFacingMode = "user";
+    let currentStream = null;
 
-// Handle switching cameras
-switchButton.addEventListener('click', () => {
-  currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-  startCamera(currentFacingMode);
-});
+    function startCamera(facingMode) {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode }
+      }).then(stream => {
+        currentStream = stream;
+        video.srcObject = stream;
+        video.play();
+      }).catch(err => {
+        console.error("Error accessing camera:", err);
+      });
+    }
 
-// Start inference when video starts playing
-video.addEventListener('play', () => {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  setInterval(() => {
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataURL = canvas.toDataURL('image/jpeg', 0.5);
-    fetch('/process_frame', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: dataURL })
-    })
-    .then(response => response.json())
-    .then(data => {
-      const img = new Image();
-      img.src = 'data:image/png;base64,' + data.image;
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      };
+    // Start initial camera
+    startCamera(currentFacingMode);
+
+    // Handle switching cameras
+    switchButton.addEventListener('click', () => {
+      currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      startCamera(currentFacingMode);
     });
-  }, 300);
-});
-</script>
+
+    video.addEventListener('play', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      setInterval(() => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataURL = canvas.toDataURL('image/jpeg', 0.5);
+        fetch('/process_frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataURL })
+        })
+        .then(response => response.json())
+        .then(data => {
+          const img = new Image();
+          img.src = 'data:image/png;base64,' + data.image;
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          };
+        });
+      }, 300);
+    });
+  </script>
 </body>
 </html>
 """
