@@ -1,159 +1,148 @@
-import threading
-import time
-import json
-import asyncio
-import websockets
-from flask import Flask, request, jsonify, render_template_string
-import base64
+from flask import Flask, render_template_string, request, jsonify
 import cv2
 import numpy as np
+import base64
+from ultralytics import YOLO
 
 app = Flask(__name__)
 
-# Global to hold the latest direction
-latest_direction = None
+MODEL_PATH = 'unrealsim/models/unrealsim.pt'
+model = YOLO(MODEL_PATH)
 
-# WebSocket inference server
-SIGNALING_SERVER = "ws://127.0.0.1:9000"
+SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 
-# Frame queue
-frame_queue = asyncio.Queue()
+HTML_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Webcam Inference</title>
+  <style>
+    video, canvas {
+      max-width: 90%;
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Live Webcam Inference</h2>
+  <video id="video" autoplay></video><br>
+  <canvas id="canvas"></canvas><br>
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const switchButton = document.createElement('button');
+switchButton.textContent = "Switch Camera";
+document.body.insertBefore(switchButton, video);
 
-# Background thread flag
-running = True
+// Default to front camera
+let currentFacingMode = "user";
+let currentStream = null;
 
+function startCamera(facingMode) {
+  if (currentStream) {
+    // Stop any existing tracks
+    currentStream.getTracks().forEach(track => track.stop());
+  }
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facingMode }
+  }).then(stream => {
+    currentStream = stream;
+    video.srcObject = stream;
+  }).catch(err => {
+    console.error("Error accessing camera:", err);
+  });
+}
 
-async def inference_loop():
-    global latest_direction, running
-    async with websockets.connect(SIGNALING_SERVER) as websocket:
-        print("✅ Connected to inference server")
-        while running:
-            # Wait for a frame from the browser
-            encoded_frame = await frame_queue.get()
+// Start initial camera
+startCamera(currentFacingMode);
 
-            # Send to inference server
-            await websocket.send(json.dumps({
-                "frame": encoded_frame
-            }))
+// Handle switching cameras
+switchButton.addEventListener('click', () => {
+  currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+  startCamera(currentFacingMode);
+});
 
-            # Receive result
-            msg = await websocket.recv()
-            data = json.loads(msg)
-            latest_direction = data.get("direction_angle")
-
-            # Small delay to avoid overloading
-            await asyncio.sleep(0.05)
-
-
-def start_inference_thread():
-    def run_loop():
-        asyncio.run(inference_loop())
-    t = threading.Thread(target=run_loop, daemon=True)
-    t.start()
-
+// Start inference when video starts playing
+video.addEventListener('play', () => {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  setInterval(() => {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataURL = canvas.toDataURL('image/jpeg', 0.5);
+    fetch('/process_frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataURL })
+    })
+    .then(response => response.json())
+    .then(data => {
+      const img = new Image();
+      img.src = 'data:image/png;base64,' + data.image;
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      };
+    });
+  }, 300);
+});
+</script>
+</body>
+</html>
+"""
 
 @app.route("/")
 def index():
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Webcam Arrow Inference</title>
-        <style>
-            video, canvas { border:1px solid black; }
-        </style>
-    </head>
-    <body>
-        <h2>Webcam Arrow Inference</h2>
-        <video id="video" width="320" height="240" autoplay></video>
-        <canvas id="arrowCanvas" width="400" height="400"></canvas>
-        <script>
-            const video = document.getElementById("video");
-            const canvas = document.getElementById("arrowCanvas");
-            const ctx = canvas.getContext("2d");
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
+    return render_template_string(HTML_PAGE)
 
-            function drawArrow(angle) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.beginPath();
-                const length = 100;
-                const rad = angle * Math.PI / 180;
-                const x = centerX + length * Math.cos(rad);
-                const y = centerY - length * Math.sin(rad);
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(x, y);
-                ctx.strokeStyle = "red";
-                ctx.lineWidth = 5;
-                ctx.stroke();
-            }
+@app.route("/process_frame", methods=["POST"])
+def process_frame():
+    content = request.json
+    data_url = content["image"]
+    header, encoded = data_url.split(",", 1)
+    img_data = base64.b64decode(encoded)
 
-            async function pollDirection() {
-                try {
-                    const resp = await fetch("/direction");
-                    const data = await resp.json();
-                    if (data.direction !== null) {
-                        drawArrow(data.direction);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
+    nparr = np.frombuffer(img_data, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            setInterval(pollDirection, 300);
+    height, width = frame.shape[:2]
+    overlay = frame.copy()
+    midpoints = []
 
-            // Start webcam
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then((stream) => {
-                    video.srcObject = stream;
-                })
-                .catch((err) => {
-                    console.error("Error accessing webcam:", err);
-                });
+    results = model(frame, conf=0.85, verbose=False)
 
-            // Capture and send frames periodically
-            const hiddenCanvas = document.createElement("canvas");
-            hiddenCanvas.width = 320;
-            hiddenCanvas.height = 240;
-            const hiddenCtx = hiddenCanvas.getContext("2d");
+    for result in results:
+        if result.masks is not None:
+            mask = result.masks.data[0].cpu().numpy()
+            mask = (mask * 255).astype(np.uint8)
+            mask_resized = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
 
-            async function captureAndSend() {
-                hiddenCtx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                const dataURL = hiddenCanvas.toDataURL("image/jpeg", 0.6);
-                const base64Data = dataURL.split(",")[1];
+            green_overlay = np.full_like(frame, (0, 255, 0))
+            blended = cv2.addWeighted(frame, 0.3, green_overlay, 0.7, 0)
+            overlay[mask_resized > 0] = blended[mask_resized > 0]
 
-                try {
-                    await fetch("/upload", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ frame: base64Data })
-                    });
-                } catch (e) {
-                    console.error(e);
-                }
-            }
+            for r in SCAN_HEIGHTS:
+                y = int(height * r)
+                if y >= height:
+                    continue
+                scan_row = mask_resized[y, :]
+                indices = np.where(scan_row > 0)[0]
+                if len(indices) > 0:
+                    midpoint_x = int(np.mean(indices))
+                    midpoints.append((midpoint_x, y))
+                    cv2.circle(overlay, (midpoint_x, y), 5, (255, 0, 0), -1)
+                cv2.line(overlay, (0, y), (width, y), (150, 150, 150), 1)
 
-            setInterval(captureAndSend, 200);
-        </script>
-    </body>
-    </html>
-    """)
+    if midpoints:
+        avg_x = int(np.mean([pt[0] for pt in midpoints]))
+        target_point = (avg_x, min([pt[1] for pt in midpoints]))
+        start_point = (width // 2, height)
+        cv2.arrowedLine(overlay, start_point, target_point, (0, 0, 255), 5, tipLength=0.2)
 
+    # Encode processed frame to PNG
+    _, buffer = cv2.imencode('.png', overlay)
+    encoded_result = base64.b64encode(buffer).decode('utf-8')
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    data = request.json
-    frame_data = data["frame"]
-    # Put into async queue
-    asyncio.run(frame_queue.put(frame_data))
-    return jsonify({"status": "ok"})
-
-
-@app.route("/direction")
-def get_direction():
-    return jsonify({"direction": latest_direction})
-
+    return jsonify({'image': encoded_result})
 
 if __name__ == "__main__":
-    start_inference_thread()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5001, debug=True)

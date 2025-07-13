@@ -1,91 +1,85 @@
-from flask import Flask, request, jsonify, render_template_string
-import random
+from flask import Flask, render_template, request, send_file
+import cv2
+import numpy as np
+import io
+from ultralytics import YOLO
+from PIL import Image
 
 app = Flask(__name__)
 
-@app.route("/")
-def index():
-    return render_template_string("""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload Image and Get Arrow</title>
-    <style>
-        #arrowCanvas { border:1px solid black; margin-top:20px; }
-    </style>
-</head>
-<body>
-    <h2>Upload Image</h2>
-    <input type="file" id="fileInput">
-    <button onclick="uploadImage()">Upload</button>
+# Laad het YOLO-model
+MODEL_PATH = 'unrealsim/models/unrealsim.pt'   # Pas aan indien nodig
+model = YOLO(MODEL_PATH, verbose=True)
 
-    <canvas id="arrowCanvas" width="400" height="400"></canvas>
+# Scanhoogtes zoals in je originele code
+SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 
-    <script>
-        const canvas = document.getElementById("arrowCanvas");
-        const ctx = canvas.getContext("2d");
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
+@app.route("/", methods=["GET", "POST"])
+def upload_predict():
+    if request.method == "POST":
+        if "file" not in request.files:
+            return "No file part"
+        file = request.files["file"]
+        if file.filename == "":
+            return "No selected file"
+        if file:
+            # Lees afbeelding in numpy array
+            in_memory_file = io.BytesIO()
+            file.save(in_memory_file)
+            data = np.frombuffer(in_memory_file.getvalue(), dtype=np.uint8)
+            frame = cv2.imdecode(data, cv2.IMREAD_COLOR)
 
-        function drawArrow(angle) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.beginPath();
-            const length = 100;
-            const rad = angle * Math.PI / 180;
-            const x = centerX + length * Math.cos(rad);
-            const y = centerY - length * Math.sin(rad);
-            ctx.moveTo(centerX, centerY);
-            ctx.lineTo(x, y);
-            ctx.strokeStyle = "red";
-            ctx.lineWidth = 5;
-            ctx.stroke();
-        }
+            # Run inference
+            DETECTION_CONFIDENCE = 0.85
+            results = model(frame, conf=DETECTION_CONFIDENCE, verbose=False)
 
-        function uploadImage() {
-            const fileInput = document.getElementById("fileInput");
-            const file = fileInput.files[0];
-            if (!file) {
-                alert("Please select a file.");
-                return;
-            }
+            # Overlay zoals in je script
+            overlay = frame.copy()
+            height, width = frame.shape[:2]
+            midpoints = []
 
-            const reader = new FileReader();
-            reader.onload = function() {
-                const base64 = reader.result.split(",")[1];
+            for result in results:
+                if result.masks is not None:
+                    mask = result.masks.data[0].cpu().numpy()
+                    mask = (mask * 255).astype(np.uint8)
+                    mask_resized = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
 
-                fetch("/upload", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ frame: base64 })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.direction !== null) {
-                        drawArrow(data.direction);
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-    </script>
-</body>
-</html>
-""")
+                    green_overlay = np.full_like(frame, (0, 255, 0))
+                    blended = cv2.addWeighted(frame, 0.3, green_overlay, 0.7, 0)
+                    overlay[mask_resized > 0] = blended[mask_resized > 0]
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    data = request.json
-    frame_data = data.get("frame")
+                    # Scanhoogtes en middenpunten
+                    for r in SCAN_HEIGHTS:
+                        y = int(height * r)
+                        if y >= height:
+                            continue
+                        scan_row = mask_resized[y, :]
+                        indices = np.where(scan_row > 0)[0]
+                        if len(indices) > 0:
+                            midpoint_x = int(np.mean(indices))
+                            midpoints.append((midpoint_x, y))
+                            cv2.circle(overlay, (midpoint_x, y), 5, (255, 0, 0), -1)
+                        cv2.line(overlay, (0, y), (width, y), (150, 150, 150), 1)
 
-    # Here you would process the frame with your model.
-    # For this demo, we'll simulate with a random angle.
-    simulated_angle = random.randint(0, 359)
-    print(f"Received image of size {len(frame_data)} bytes. Returning angle {simulated_angle}°")
+            # Richtingspijl
+            if midpoints:
+                avg_x = int(np.mean([pt[0] for pt in midpoints]))
+                target_point = (avg_x, min([pt[1] for pt in midpoints]))
+                start_point = (width // 2, height)
+                cv2.arrowedLine(overlay, start_point, target_point, (0, 0, 255), 5, tipLength=0.2)
 
-    return jsonify({"direction": simulated_angle})
+            # Converteer BGR naar RGB
+            overlay_rgb = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(overlay_rgb)
+
+            # Opslaan in buffer om terug te geven
+            img_io = io.BytesIO()
+            pil_img.save(img_io, 'PNG')
+            img_io.seek(0)
+            return send_file(img_io, mimetype='image/png')
+
+    return render_template("upload.html")
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
