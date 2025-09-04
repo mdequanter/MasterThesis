@@ -135,14 +135,15 @@ if GPS_ENABLED == True:
             self.running = True
 
         def run(self):
-            for report in self.session:
-                if report['class'] == 'TPV':
-                    if hasattr(report, 'lat') and hasattr(report, 'lon'):
-                        self.current_value = (report.lat, report.lon)
-                if not self.running:
-                    break
-
-    # Start de GPS-thread
+            while self.running:
+                try:
+                    report = self.session.next()  # blokkeert tot er iets komt
+                    if report['class'] == 'TPV':
+                        if hasattr(report, 'lat') and hasattr(report, 'lon'):
+                            self.current_value = (report.lat, report.lon)
+                except StopIteration:
+                    time.sleep(0.1)
+        # Start de GPS-thread
     gpsp = GpsPoller()
     gpsp.start()
 
