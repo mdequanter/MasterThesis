@@ -47,6 +47,7 @@ successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
 REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
 FRAMELIMIT = 17000
+GPS_ENABLED = False  # True = GPS tracking aan, False = uit
 
 MAX_JPEG_QUALITY = JPEG_QUALITY
 INFERENCE_TIME = 0
@@ -98,6 +99,8 @@ for arg in sys.argv[1:]:
         POWERCPU = int(arg.split("=")[1])
     elif arg.startswith("ANALYTICSFILE="):
         ANALYTICSFILE = arg.split("=")[1]
+    elif arg.startswith("GPS_ENABLED="):
+        GPS_ENABLED = arg.split("=")[1].lower() == "true"
 
     elif arg.startswith("FULLSCREEN="):
         FULLSCREEN = arg.split("=")[1].lower() == "true"
@@ -114,7 +117,32 @@ print(f"FULLSCREEN: {FULLSCREEN}")
 print(f"PLAY_SOUND: {PLAY_SOUND}")
 print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 print(f"POWERCPU: {POWERCPU}" )
+print(f"GPS_ENABLED: {GPS_ENABLED}")
 
+
+
+if GPS_ENABLED == True:
+    import gps
+    import threading
+
+    class GpsPoller(threading.Thread):
+        def __init__(self):
+            threading.Thread.__init__(self)
+            self.session = gps.gps(mode=gps.WATCH_ENABLE)
+            self.current_value = None
+            self.running = True
+
+        def run(self):
+            for report in self.session:
+                if report['class'] == 'TPV':
+                    if hasattr(report, 'lat') and hasattr(report, 'lon'):
+                        self.current_value = (report.lat, report.lon)
+                if not self.running:
+                    break
+
+    # Start de GPS-thread
+    gpsp = GpsPoller()
+    gpsp.start()
 
 if RASPICAM == True:
     from picamera2 import Picamera2
@@ -141,7 +169,7 @@ if ANALYTICS:
         writer.writerow([
             "datetime", "signaling_server","resolution","max_fps",
             "jpeg_quality", "avg_latency_ms", "avg_fps", "avg_size_kb",
-            "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","queuesize","missed_frames","successful_frames", "last_frame_id"
+            "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","queuesize","missed_frames","successful_frames", "last_frame_id","gps_coordinates"
         ])
  
     acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "inference" : [], "poweruse" : [], "queuesize" : [] }
@@ -370,6 +398,14 @@ async def send_messages(websocket):
             acc["poweruse"].append(LATEST_POWER)
             acc["queuesize"].append(QUEUESIZE)
 
+
+            if (GPS_ENABLED == True):
+                if gpsp.current_value:
+                    lat, lon = gpsp.current_value
+                    print(f"Lat: {lat}, Lon: {lon}")
+                else:
+                    print("No fix yet...")
+
             if (time.time() - slot_start_time >= 1.0 or 1==1):   # 1==1  record each frame
                 with open(csv_filename, mode='a', newline='') as file:
                     writer = csv.writer(file)
@@ -391,6 +427,7 @@ async def send_messages(websocket):
                         missedFrames,
                         successFullFrames,
                         frame_id,
+                        f"{lat},{lon}" if GPS_ENABLED and gpsp.current_value else "No fix"
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
