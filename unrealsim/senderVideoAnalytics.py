@@ -384,7 +384,12 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"Queue size: {QUEUESIZE}", (10, 390),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        
+        if (GPS_ENABLED == True):
+            if gpsp.current_value:
+                lat, lon = gpsp.current_value
+                print(f"Lat: {lat}, Lon: {lon}")
+                cv2.putText(display, f"GPS: {lat}, {lon}", (10, 420),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         cv2.imshow("Video Stream", display)
 
