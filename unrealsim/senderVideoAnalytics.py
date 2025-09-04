@@ -54,6 +54,8 @@ INFERENCE_TIME = 0
 LATEST_POWER = 0
 POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
 QUEUESIZE = 0
+LAT = 0.0000
+LON = 0.0000
 
 framesPerfps = 500
 
@@ -174,7 +176,7 @@ if ANALYTICS:
  
     acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "inference" : [], "poweruse" : [], "queuesize" : [] }
     slot_start_time = time.time()
-
+    gps_start_time = time.time()
 
 
 # Global variable to store power reading
@@ -230,7 +232,7 @@ def encrypt_data(plain_text):
 
 async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH
-    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps
+    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps,LAT,LON
     if ANALYTICS:
         global acc, slot_start_time
 
@@ -403,13 +405,12 @@ async def send_messages(websocket):
             acc["poweruse"].append(LATEST_POWER)
             acc["queuesize"].append(QUEUESIZE)
 
+            if (time.time() - gps_start_time >= 5.0):
 
-            if (GPS_ENABLED == True):
-                if gpsp.current_value:
-                    lat, lon = gpsp.current_value
-                    print(f"Lat: {lat}, Lon: {lon}")
-                else:
-                    print("No fix yet...")
+                if (GPS_ENABLED == True):
+                    if gpsp.current_value:
+                        LAT, LON = gpsp.current_value
+                        gps_start_time = time.time()
 
             if (time.time() - slot_start_time >= 1.0 or 1==1):   # 1==1  record each frame
                 with open(csv_filename, mode='a', newline='') as file:
@@ -432,7 +433,7 @@ async def send_messages(websocket):
                         missedFrames,
                         successFullFrames,
                         frame_id,
-                        f"{lat},{lon}" if GPS_ENABLED and gpsp.current_value else "No fix"
+                        f"{LAT},{LON}"
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
