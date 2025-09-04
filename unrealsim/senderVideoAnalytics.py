@@ -16,14 +16,15 @@ import os
 import math
 from datetime import datetime
 from playsound import playsound
-import simpleaudio as sa
+#import simpleaudio as sa
 import threading
 import numpy as np
 import psutil
 import random
 
-fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
-fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
+#fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
+#fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
+fps_choices = [16,16,18,20,22,24]  # the first one is only used to stabilize the system.
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
@@ -53,7 +54,7 @@ LATEST_POWER = 0
 POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
 QUEUESIZE = 0
 
-framesPerfps = 100
+framesPerfps = 500
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -431,8 +432,8 @@ async def receive_messages(websocket):
                     if ((time.time() - lastPathDetected) > 1.0):
                         PATH_DETECTED = False
                         DIRECTION_ANGLE = None
-                        if (PLAY_SOUND):
-                            play_sound("sounds/beep.wav")
+                        #if (PLAY_SOUND):
+                            #play_sound("sounds/beep.wav")
                         lastPathDetected = time.time()
             if 'frame_id' in message_json:
                 FRAME_ID = message_json['frame_id']
