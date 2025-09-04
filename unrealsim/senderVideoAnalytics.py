@@ -234,7 +234,7 @@ async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH
     global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps,LAT,LON
     if ANALYTICS:
-        global acc, slot_start_time
+        global acc, slot_start_time, gps_start_time
 
     if (MAX_FPS > 0) :
         frame_delay = 1.0 / MAX_FPS
