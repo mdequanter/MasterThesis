@@ -135,12 +135,14 @@ if GPS_ENABLED == True:
             self.running = True
 
         def run(self):
+            global LAT, LON
             while self.running:
                 try:
                     report = self.session.next()  # blokkeert tot er iets komt
                     if report['class'] == 'TPV':
                         if hasattr(report, 'lat') and hasattr(report, 'lon'):
                             self.current_value = (report.lat, report.lon)
+                            LAT, LON = report.lat, report.lon
                 except StopIteration:
                     time.sleep(0.1)
         # Start de GPS-thread
@@ -389,8 +391,7 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         if (GPS_ENABLED == True):
             if gpsp.current_value:
-                lat, lon = gpsp.current_value
-                cv2.putText(display, f"GPS: {lat}, {lon}", (10, 420),
+                cv2.putText(display, f"GPS: {LAT}, {LON}", (10, 420),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         cv2.imshow("Video Stream", display)
@@ -405,13 +406,6 @@ async def send_messages(websocket):
             acc["poweruse"].append(LATEST_POWER)
             acc["queuesize"].append(QUEUESIZE)
 
-            if (time.time() - gps_start_time >= 5.0):
-
-                if (GPS_ENABLED == True):
-                    if gpsp.current_value:
-                        LAT, LON = gpsp.current_value
-                        gps_start_time = time.time()
-                        print(f"new Lat: {LAT}, Lon: {LON}")    
 
             if (time.time() - slot_start_time >= 1.0 or 1==1):   # 1==1  record each frame
                 with open(csv_filename, mode='a', newline='') as file:
