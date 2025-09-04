@@ -389,7 +389,6 @@ async def send_messages(websocket):
         if (GPS_ENABLED == True):
             if gpsp.current_value:
                 lat, lon = gpsp.current_value
-                print(f"Lat: {lat}, Lon: {lon}")
                 cv2.putText(display, f"GPS: {lat}, {lon}", (10, 420),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
@@ -411,6 +410,7 @@ async def send_messages(websocket):
                     if gpsp.current_value:
                         LAT, LON = gpsp.current_value
                         gps_start_time = time.time()
+                        print(f"new Lat: {LAT}, Lon: {LON}")    
 
             if (time.time() - slot_start_time >= 1.0 or 1==1):   # 1==1  record each frame
                 with open(csv_filename, mode='a', newline='') as file:
