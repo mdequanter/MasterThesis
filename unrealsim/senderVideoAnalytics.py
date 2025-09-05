@@ -349,7 +349,7 @@ async def send_messages(websocket):
             if (currentFPS >= nrFps):
                 MAX_FPS = fps_choices[0]
                 currentFPS = 0
-                should_exit = True
+                #should_exit = True
             MAX_FPS = fps_choices[currentFPS]
             print(f"🔄 Switched MAX_FPS to {MAX_FPS}")
         
@@ -419,12 +419,6 @@ async def send_messages(websocket):
         else:
             cv2.putText(display, f"frame id: {frame_id}", (10, 210),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            
-
-        if (REPLAY_VIDEO == True and USE_VIDEO == True and (frame_id > 300)):
-            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            frame_id = 0
-            print("🔄 Replaying video from start")
 
         if ((frame_id >= nr_frames or frame_id > FRAMELIMIT) and USE_VIDEO and REPLAY_VIDEO == False):
             print("✅ Alle frames van de video zijn, druk Ctrl-x in terminal om programma af te sluiten")
@@ -480,7 +474,7 @@ async def send_messages(websocket):
         
 
         if (FULLSCREEN == True):
-            display = cv2.resize(display, (1920,1080))
+            display = cv2.resize(display, (1920,960))
 
 
         cv2.imshow("Video Stream", display)
