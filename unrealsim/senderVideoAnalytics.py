@@ -21,6 +21,9 @@ import threading
 import numpy as np
 import psutil
 import random
+import requests
+import socket
+
 
 #fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
 #fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
@@ -174,12 +177,72 @@ if ANALYTICS:
         writer.writerow([
             "datetime", "signaling_server","resolution","max_fps",
             "jpeg_quality", "avg_latency_ms", "avg_fps", "avg_size_kb",
-            "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","queuesize","missed_frames","successful_frames", "last_frame_id","gps_coordinates"
+            "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","queuesize","missed_frames","successful_frames", "last_frame_id","gps_coordinates","Connection"
         ])
  
     acc = { "latency": [], "fps": [], "size": [], "compression": [], "encryption": [], "inference" : [], "poweruse" : [], "queuesize" : [] }
     slot_start_time = time.time()
     gps_start_time = time.time()
+
+
+
+def is_reachable(ip: str, port: int = 80, timeout: float = 1.0) -> bool:
+    try:
+        with socket.create_connection((ip, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+
+URL = "http://192.168.1.1/api/model.json"
+
+
+
+def fetch_status(url=URL, timeout=3):
+    try:
+        r = requests.get(url, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except (requests.ConnectionError, requests.Timeout, requests.HTTPError):
+        return False
+
+
+
+def get_connection_type(wwan: dict) -> str:
+    """
+    Inspect a wwan status dictionary and return a readable connection type.
+    """
+    ps  = str(wwan.get("currentPSserviceType", "")).lower()
+    nw  = str(wwan.get("currentNWserviceType", "")).lower()
+    txt = str(wwan.get("connectionText", "")).lower()
+    diag = (wwan.get("diagInfo") or [{}])[0]
+
+    # Flags
+    lte_att = bool(diag.get("lteAttached"))
+    nr_att  = bool(diag.get("nr5gAttached"))
+    endc    = bool(diag.get("endcEnabledConfig"))
+
+    # Decide type
+    if "nr sa" in txt or (nr_att and not endc):
+        return "5G (NR-SA)"   # Standalone 5G
+    elif "nr" in txt or (nr_att and endc):
+        return "5G (NR-NSA)"  # Non-standalone 5G
+    elif "lte" in ps or "lte" in nw or lte_att:
+        return "4G (LTE)"
+    elif "umts" in ps or "wcdma" in ps or "3g" in txt:
+        return "3G (UMTS)"
+    elif "gsm" in ps or "edge" in ps or "2g" in txt:
+        return "2G (GSM/EDGE)"
+    else:
+        return "Not connected"
+
+
+if (is_reachable("192.168.1.1")):
+    status = fetch_status()["wwan"]  # your JSON from the modem
+    CONNECTIONSTATUS = get_connection_type(status)
+else:
+    CONNECTIONSTATUS = "Wifi"
 
 
 # Global variable to store power reading
@@ -235,7 +298,7 @@ def encrypt_data(plain_text):
 
 async def send_messages(websocket):
     global frame_id, JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,missedFrames,successFullFrames,nr_frames,REPLAY_VIDEO,MAX_FPS,HEIGHT,WIDTH
-    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps,LAT,LON
+    global FRAMELIMIT,should_exit,LATEST_POWER,POWERCPU,framesPerfps,LAT,LON,CONNECTIONSTATUS
     if ANALYTICS:
         global acc, slot_start_time, gps_start_time
 
@@ -328,6 +391,16 @@ async def send_messages(websocket):
         elif (MAX_FPS <= -1) :
             displayFPS = round(1 / (abs(MAX_FPS)),2)
 
+        if frame_id % 300 == 0:
+            if (is_reachable("192.168.1.1")):
+                status = fetch_status()["wwan"]  # your JSON from the modem
+                CONNECTIONSTATUS = get_connection_type(status)
+            else:
+                CONNECTIONSTATUS = "Wifi"
+
+
+
+
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"FPS: {fps:.2f}, MAX {displayFPS}", (10, 90),
@@ -394,6 +467,9 @@ async def send_messages(websocket):
                 cv2.putText(display, f"GPS: {LAT}, {LON}", (10, 420),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+        cv2.putText(display, f"Connection: {CONNECTIONSTATUS}", (10, 450),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
         cv2.imshow("Video Stream", display)
 
         if ANALYTICS and currentFPS>=1 :
@@ -428,7 +504,8 @@ async def send_messages(websocket):
                         missedFrames,
                         successFullFrames,
                         frame_id,
-                        f"{LAT},{LON}"
+                        f"{LAT},{LON}",
+                        CONNECTIONSTATUS
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
