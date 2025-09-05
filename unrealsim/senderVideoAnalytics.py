@@ -100,6 +100,8 @@ for arg in sys.argv[1:]:
         RASPICAM = arg.split("=")[1]
     elif arg.startswith("REPLAY_VIDEO="):
         REPLAY_VIDEO = arg.split("=")[1]
+    elif arg.startswith("FRAMELIMIT="):
+        FRAMELIMIT = int(arg.split("=")[1])
     elif arg.startswith("POWERCPU="):
         POWERCPU = int(arg.split("=")[1])
     elif arg.startswith("ANALYTICSFILE="):
@@ -124,6 +126,7 @@ print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 print(f"POWERCPU: {POWERCPU}" )
 print(f"GPS_ENABLED: {GPS_ENABLED}")
 print (f"REPLAY_VIDEO: {REPLAY_VIDEO}" )
+print (f"FRAMELIMIT: {FRAMELIMIT}" )
 
 
 
