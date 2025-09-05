@@ -423,7 +423,7 @@ async def send_messages(websocket):
             cv2.putText(display, f"frame id: {frame_id}", (10, 210),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        if (frame_id > FRAMELIMIT and REPLAY_VIDEO == False):
+        if (frame_id > FRAMELIMIT):
             print("✅ Limit frame reached, druk Ctrl-x in terminal om programma af te sluiten")
             cv2.destroyAllWindows()
             should_exit = True
