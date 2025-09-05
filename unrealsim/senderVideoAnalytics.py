@@ -419,6 +419,12 @@ async def send_messages(websocket):
         else:
             cv2.putText(display, f"frame id: {frame_id}", (10, 210),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            
+
+        if (REPLAY_VIDEO == True and USE_VIDEO == True and frame_id >= nr_frames):
+            capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            frame_id = 0
+            print("🔄 Replaying video from start")
 
         if ((frame_id >= nr_frames or frame_id > FRAMELIMIT) and USE_VIDEO and REPLAY_VIDEO == False):
             print("✅ Alle frames van de video zijn, druk Ctrl-x in terminal om programma af te sluiten")
