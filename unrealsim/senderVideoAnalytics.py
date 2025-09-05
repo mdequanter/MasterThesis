@@ -60,7 +60,7 @@ QUEUESIZE = 0
 LAT = 0.0000
 LON = 0.0000
 
-framesPerfps = 500
+framesPerfps = 100
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
