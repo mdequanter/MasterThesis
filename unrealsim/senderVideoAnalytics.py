@@ -123,6 +123,7 @@ print(f"PLAY_SOUND: {PLAY_SOUND}")
 print(f"DISPLAY_FRAME: {DISPLAY_FRAME}")
 print(f"POWERCPU: {POWERCPU}" )
 print(f"GPS_ENABLED: {GPS_ENABLED}")
+print (f"REPLAY_VIDEO: {REPLAY_VIDEO}" )
 
 
 
@@ -309,6 +310,7 @@ async def send_messages(websocket):
 
 
 
+
     cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
     if FULLSCREEN:
         cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
@@ -469,6 +471,11 @@ async def send_messages(websocket):
 
         cv2.putText(display, f"Connection: {CONNECTIONSTATUS}", (10, 450),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
+
+        if (FULLSCREEN == True):
+            cv2.resizeWindow("Video Stream", 1280, 960)  # window size
+
 
         cv2.imshow("Video Stream", display)
 
