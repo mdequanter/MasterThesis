@@ -474,7 +474,7 @@ async def send_messages(websocket):
         
 
         if (FULLSCREEN == True):
-            cv2.resizeWindow("Video Stream", 1280, 960)  # window size
+            display = cv2.resize(display, (1280,960))
 
 
         cv2.imshow("Video Stream", display)
