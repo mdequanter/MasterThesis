@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import argparse, requests, os, subprocess, json, shutil, time
+import argparse, requests, os, subprocess, json, shutil, time, signal
 from datetime import datetime
 
-# ---------- Config ----------
 URL = "http://192.168.1.1/api/model.json"
 
 # ---------- Router helpers ----------
@@ -101,10 +100,6 @@ def run_ookla(single=True, server_id=None, timeout=180):
 
 # ---------- GPS (USB NMEA) ----------
 def nmea_to_deg(val_str, hemi):
-    """
-    Convert NMEA lat/lon (ddmm.mmmm or dddmm.mmmm) + hemisphere to decimal degrees.
-    Returns None if invalid.
-    """
     try:
         if not val_str:
             return None
@@ -119,10 +114,6 @@ def nmea_to_deg(val_str, hemi):
         return None
 
 def read_gps_once(port="/dev/ttyUSB0", baud=9600, timeout_s=1.5, max_lines=120):
-    """
-    Read a few NMEA lines from serial and return dict with lat, lon, alt_m, fix_quality, sats.
-    Requires: pip install pyserial
-    """
     try:
         import serial
     except ImportError:
@@ -143,8 +134,7 @@ def read_gps_once(port="/dev/ttyUSB0", baud=9600, timeout_s=1.5, max_lines=120):
                     continue
                 lines_read += 1
                 parts = raw.split(",")
-                talker = parts[0][3:] if len(parts[0]) >= 6 else parts[0][3:]
-                # RMC: $GPRMC/$GNRMC -> lat/lon when status 'A'
+                # RMC: $GPRMC/$GNRMC
                 if parts[0].endswith("RMC") and len(parts) >= 7:
                     status = parts[2] if len(parts) > 2 else "V"
                     if status == "A":
@@ -153,23 +143,16 @@ def read_gps_once(port="/dev/ttyUSB0", baud=9600, timeout_s=1.5, max_lines=120):
                         if la is not None and lo is not None:
                             lat, lon = la, lo
                             got_pos = True
-                # GGA: $GPGGA/$GNGGA -> altitude, fix quality, satellites + lat/lon
+                # GGA: $GPGGA/$GNGGA
                 if parts[0].endswith("GGA") and len(parts) >= 11:
                     la = nmea_to_deg(parts[2], parts[3] if len(parts) > 3 else "")
                     lo = nmea_to_deg(parts[4], parts[5] if len(parts) > 5 else "")
-                    fq = None
-                    try:
-                        fq = int(parts[6])
-                    except Exception:
-                        fq = None
-                    try:
-                        satn = int(parts[7])
-                    except Exception:
-                        satn = None
-                    try:
-                        alt = float(parts[9])
-                    except Exception:
-                        alt = None
+                    try:    fq   = int(parts[6])
+                    except: fq   = None
+                    try:    satn = int(parts[7])
+                    except: satn = None
+                    try:    alt  = float(parts[9])
+                    except: alt  = None
                     if la is not None and lo is not None:
                         lat, lon = la, lo
                         got_pos = True
@@ -196,103 +179,145 @@ def write_csv(path, header, row):
         esc = lambda s: ("" if s is None else str(s).replace("\n"," ").replace(",",";"))
         f.write(",".join(esc(x) for x in row) + "\n")
 
-# ---------- Main ----------
+# ---------- Main (repeating) ----------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", help="path to CSV file to append one row", default="")
-    ap.add_argument("--ookla", action="store_true", help="run one Ookla speedtest and include its metrics in CSV/print")
+    ap.add_argument("--csv", help="path to CSV file to append rows", default="")
+    ap.add_argument("--interval", type=float, default=120.0, help="repeat interval in seconds (default 120)")
+    ap.add_argument("--runs", type=int, default=0, help="number of iterations (0 = run forever)")
+    ap.add_argument("--ookla", action="store_true", help="run one Ookla speedtest each iteration")
     ap.add_argument("--ookla-server-id", type=int, default=None, help="optional Ookla server id")
     ap.add_argument("--no-single", action="store_true", help="do NOT use --single (use multi-stream test)")
     ap.add_argument("--gps-port", type=str, default="", help="GPS serial port (e.g., /dev/ttyUSB0). Leave empty to skip.")
     ap.add_argument("--gps-baud", type=int, default=9600, help="GPS baud rate (default 9600)")
     args = ap.parse_args()
 
-    data = fetch_status()
-    wwan = data.get("wwan", {})
-    verdict = classify_rat(wwan)
-    print(verdict)
+    stop = {"flag": False}
+    def _sigint(_s, _f):
+        stop["flag"] = True
+        print("\nStopping…")
+    signal.signal(signal.SIGINT, _sigint)
 
-    # Bands / carriers
-    lte_c = first_carrier(wwan.get("lteBandInfo") or [])
-    nr_c  = first_carrier(wwan.get("nr5gBandInfo") or [])
-    lte_band = f"B{lte_c.get('band')}" if lte_c.get("band") is not None else "n/a"
-    lte_chan = lte_c.get("channel", "n/a")
-    lte_bw   = lte_c.get("dlBandwidth", "n/a")
-    nr_band  = f"n{nr_c.get('band')}" if nr_c.get("band") is not None else "n/a"
-    nr_chan  = nr_c.get("channel", "n/a")
-    nr_bw    = nr_c.get("dlBandwidth", "n/a")
+    header = [
+        "ts","verdict",
+        "lte_band","lte_channel","lte_dl_bw","lte_rsrp_dbm","lte_rsrq_db","lte_sinr_db",
+        "nr_band","nr_channel","nr_dl_bw","nr_rsrp_dbm","nr_rsrq_db","nr_sinr_db",
+        "gps_lat","gps_lon","gps_alt_m","gps_fix_quality","gps_sats",
+        "lte_line","nr_line",
+        "ookla_download_Mbps","ookla_upload_Mbps","ookla_latency_ms","ookla_jitter_ms",
+        "ookla_packetLoss_pct","ookla_server","ookla_server_loc","ookla_isp","ookla_error"
+    ]
 
-    # Signal strength
-    sig = wwan.get("signalStrength", {})
-    lte_rsrp = to_float(sig.get("rsrp"))
-    lte_rsrq = to_float(sig.get("rsrq"))
-    lte_sinr = to_float(sig.get("sinr"))
-    nr_rsrp  = to_float(sig.get("nr5gRsrp"))
-    nr_rsrq  = to_float(sig.get("nr5gRsrq"))
-    nr_sinr  = to_float(sig.get("nr5gSinr"))
+    iteration = 0
+    next_t = time.monotonic()
 
-    # Print lines like your console
-    lte_line = (f"LTE anchor: {lte_band} (ch {lte_chan}, DL {lte_bw}) | "
-                f"RSRP {lte_rsrp} dBm | RSRQ {lte_rsrq} dB | SINR {lte_sinr} dB")
-    print(lte_line)
-    if wwan.get("nr5gBandInfo"):
-        nr_line = (f"NR carrier:  {nr_band} (ch {nr_chan}, DL {nr_bw})  | "
-                   f"NR RSRP {nr_rsrp} dBm | NR RSRQ {nr_rsrq} dB | NR SINR {nr_sinr} dB")
-    else:
-        nr_line = "NR carrier:  n/a"
-    print(nr_line)
+    while not stop["flag"]:
+        iteration += 1
+        ts = datetime.now().isoformat(timespec="seconds")
+        print(f"\n=== [{ts}] Iteration {iteration} ===")
 
-    # GPS read (optional)
-    gps = {"lat": None, "lon": None, "alt_m": None, "fix_quality": None, "sats": None}
-    if args.gps_port:
-        gps = read_gps_once(port=args.gps_port, baud=args.gps_baud)
-        if "error" in gps and gps["error"]:
-            print(f"GPS: {gps['error']}")
+        # Router status
+        try:
+            data = fetch_status()
+        except Exception as e:
+            print(f"Router fetch error: {e}")
+            data = {}
+
+        wwan = data.get("wwan", {})
+        verdict = classify_rat(wwan)
+        print(verdict)
+
+        # Bands / carriers
+        lte_c = first_carrier(wwan.get("lteBandInfo") or [])
+        nr_c  = first_carrier(wwan.get("nr5gBandInfo") or [])
+        lte_band = f"B{lte_c.get('band')}" if lte_c.get("band") is not None else "n/a"
+        lte_chan = lte_c.get("channel", "n/a")
+        lte_bw   = lte_c.get("dlBandwidth", "n/a")
+        nr_band  = f"n{nr_c.get('band')}" if nr_c.get("band") is not None else "n/a"
+        nr_chan  = nr_c.get("channel", "n/a")
+        nr_bw    = nr_c.get("dlBandwidth", "n/a")
+
+        # Signal strength
+        sig = wwan.get("signalStrength", {})
+        lte_rsrp = to_float(sig.get("rsrp"))
+        lte_rsrq = to_float(sig.get("rsrq"))
+        lte_sinr = to_float(sig.get("sinr"))
+        nr_rsrp  = to_float(sig.get("nr5gRsrp"))
+        nr_rsrq  = to_float(sig.get("nr5gRsrq"))
+        nr_sinr  = to_float(sig.get("nr5gSinr"))
+
+        # Console lines
+        lte_line = (f"LTE anchor: {lte_band} (ch {lte_chan}, DL {lte_bw}) | "
+                    f"RSRP {lte_rsrp} dBm | RSRQ {lte_rsrq} dB | SINR {lte_sinr} dB")
+        print(lte_line)
+        if wwan.get("nr5gBandInfo"):
+            nr_line = (f"NR carrier:  {nr_band} (ch {nr_chan}, DL {nr_bw})  | "
+                       f"NR RSRP {nr_rsrp} dBm | NR RSRQ {nr_rsrq} dB | NR SINR {nr_sinr} dB")
         else:
-            print(f"GPS lat/lon/alt: {gps['lat']}, {gps['lon']}, {gps['alt_m']} m "
-                  f"(fix={gps.get('fix_quality')}, sats={gps.get('sats')})")
+            nr_line = "NR carrier:  n/a"
+        print(nr_line)
 
-    # Optionally run Ookla
-    ookla = {}
-    if args.ookla:
-        print("Running Ookla speedtest… (this may take ~30–90s)")
-        ookla = run_ookla(single=not args.no_single, server_id=args.ookla_server_id)
-        if "error" in ookla:
-            print(f"Ookla: {ookla['error']}")
-        else:
-            print(f"Ookla DL/UL: {ookla['download_Mbps']} / {ookla['upload_Mbps']} Mbps  "
-                  f"Ping: {ookla['latency_ms']} ms  Jitter: {ookla['jitter_ms']} ms  "
-                  f"Loss: {ookla.get('packetLoss_pct')}%  "
-                  f"Server: {ookla.get('server_name')} ({ookla.get('server_loc')})")
+        # GPS (optional)
+        gps = {"lat": None, "lon": None, "alt_m": None, "fix_quality": None, "sats": None}
+        if args.gps_port:
+            gps = read_gps_once(port=args.gps_port, baud=args.gps_baud)
+            if "error" in gps and gps["error"]:
+                print(f"GPS: {gps['error']}")
+            else:
+                print(f"GPS lat/lon/alt: {gps['lat']}, {gps['lon']}, {gps['alt_m']} m "
+                      f"(fix={gps.get('fix_quality')}, sats={gps.get('sats')})")
 
-    # CSV append (one row)
-    if args.csv:
-        header = [
-            "ts","verdict",
-            "lte_band","lte_channel","lte_dl_bw","lte_rsrp_dbm","lte_rsrq_db","lte_sinr_db",
-            "nr_band","nr_channel","nr_dl_bw","nr_rsrp_dbm","nr_rsrq_db","nr_sinr_db",
-            "gps_lat","gps_lon","gps_alt_m","gps_fix_quality","gps_sats",
-            "lte_line","nr_line",
-            "ookla_download_Mbps","ookla_upload_Mbps","ookla_latency_ms","ookla_jitter_ms",
-            "ookla_packetLoss_pct","ookla_server","ookla_server_loc","ookla_isp","ookla_error"
-        ]
-        row = [
-            datetime.now().isoformat(timespec="seconds"), verdict,
-            lte_band, lte_chan, lte_bw, lte_rsrp, lte_rsrq, lte_sinr,
-            nr_band, nr_chan, nr_bw, nr_rsrp, nr_rsrq, nr_sinr,
-            gps.get("lat"), gps.get("lon"), gps.get("alt_m"), gps.get("fix_quality"), gps.get("sats"),
-            lte_line, nr_line,
-            (ookla.get("download_Mbps") if ookla else None),
-            (ookla.get("upload_Mbps") if ookla else None),
-            (ookla.get("latency_ms") if ookla else None),
-            (ookla.get("jitter_ms") if ookla else None),
-            (ookla.get("packetLoss_pct") if ookla else None),
-            (ookla.get("server_name") if ookla else None),
-            (ookla.get("server_loc") if ookla else None),
-            (ookla.get("isp") if ookla else None),
-            (ookla.get("error") if "error" in ookla else None),
-        ]
-        write_csv(args.csv, header, row)
+        # Ookla (optional) – note this may take time
+        ookla = {}
+        if args.ookla:
+            print("Running Ookla speedtest…")
+            ookla = run_ookla(single=not args.no_single, server_id=args.ookla_server_id)
+            if "error" in ookla:
+                print(f"Ookla: {ookla['error']}")
+            else:
+                print(f"Ookla DL/UL: {ookla['download_Mbps']} / {ookla['upload_Mbps']} Mbps  "
+                      f"Ping: {ookla['latency_ms']} ms  Jitter: {ookla['jitter_ms']} ms  "
+                      f"Loss: {ookla.get('packetLoss_pct')}%  "
+                      f"Server: {ookla.get('server_name')} ({ookla.get('server_loc')})")
+
+        # CSV write
+        if args.csv:
+            row = [
+                ts, verdict,
+                lte_band, lte_chan, lte_bw, lte_rsrp, lte_rsrq, lte_sinr,
+                nr_band, nr_chan, nr_bw, nr_rsrp, nr_rsrq, nr_sinr,
+                gps.get("lat"), gps.get("lon"), gps.get("alt_m"), gps.get("fix_quality"), gps.get("sats"),
+                lte_line, nr_line,
+                (ookla.get("download_Mbps") if ookla else None),
+                (ookla.get("upload_Mbps") if ookla else None),
+                (ookla.get("latency_ms") if ookla else None),
+                (ookla.get("jitter_ms") if ookla else None),
+                (ookla.get("packetLoss_pct") if ookla else None),
+                (ookla.get("server_name") if ookla else None),
+                (ookla.get("server_loc") if ookla else None),
+                (ookla.get("isp") if ookla else None),
+                (ookla.get("error") if "error" in ookla else None),
+            ]
+            write_csv(args.csv, header, row)
+
+        # Stop after N runs if requested
+        if args.runs and iteration >= args.runs:
+            print("Reached requested number of runs. Exiting.")
+            break
+
+        # Schedule next run (monotonic, minimal drift)
+        next_t += args.interval
+        now = time.monotonic()
+        # If we overran the interval (e.g., because Ookla took long), catch up
+        if now > next_t:
+            next_t = now
+        sleep_s = max(0.0, next_t - now)
+        if sleep_s > 0:
+            print(f"Next run in {sleep_s:.1f} s (Ctrl+C to stop)")
+            try:
+                time.sleep(sleep_s)
+            except KeyboardInterrupt:
+                break
 
 if __name__ == "__main__":
     main()
