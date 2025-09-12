@@ -9,8 +9,8 @@ import sys
 
 # Configuratie
 SIGNALING_SERVER_DIRECTION = "ws://192.168.0.74:9000"
-SERIAL_PORT = "/dev/ttyUSB0"   # Pas dit aan indien nodig
-BAUDRATE = 9600
+SERIAL_PORT = "/dev/ttyACM0"   # Pas dit aan indien nodig
+BAUDRATE = 57600
 
 # Buffer voor de laatste seconde
 direction_history = deque()
