@@ -91,7 +91,7 @@ async def main():
                     r=0
                 send(l,r,0,0)
                 print(f"➡️ Servo angle gestuurd: {angle_int}")
-                time.sleep(0.5)
+                time.sleep(1)
 
             await asyncio.sleep(0.1)
 
