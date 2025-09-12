@@ -80,12 +80,15 @@ async def main():
             if latest_direction is not None:
                 angle_int = int(max(0, min(180, latest_direction)))
                 #ser.write(f"{angle_int}\n".encode())
-                if (angle_int > 90):
+                if (angle_int > 95):
                     l=50
                     r=-50
-                if (angle_int < 90):
+                if (angle_int < 85):
                     l=-50
-                    r=50    
+                    r=50
+                if (angle_int >= 85 and angle_int <= 95):
+                    l=0
+                    r=0
                 send(l,r,0,0)
                 print(f"➡️ Servo angle gestuurd: {angle_int}")
 
