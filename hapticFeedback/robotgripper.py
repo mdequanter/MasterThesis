@@ -89,8 +89,10 @@ async def main():
                 if (angle_int >= 85 and angle_int <= 95):
                     l=0
                     r=0
+
                 send(l,r,0,0)
                 print(f"➡️ Servo angle gestuurd: {angle_int}")
+                time.sleep(0.5)
 
             await asyncio.sleep(0.1)
 
