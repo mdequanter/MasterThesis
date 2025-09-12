@@ -27,7 +27,7 @@ import socket
 
 #fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
 #fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
-fps_choices = [16,16,18,20,22,24]  # the first one is only used to stabilize the system.
+fps_choices = [10,10,12,14,16,18,20,22,24,26,28,30]  # the first one is only used to stabilize the system.
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
@@ -49,18 +49,18 @@ missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
 REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
-FRAMELIMIT = 17000
+FRAMELIMIT = 10000
 GPS_ENABLED = False  # True = GPS tracking aan, False = uit
 
 MAX_JPEG_QUALITY = JPEG_QUALITY
 INFERENCE_TIME = 0
 LATEST_POWER = 0
-POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
+POWERCPU = 20    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used
 QUEUESIZE = 0
 LAT = 0.0000
 LON = 0.0000
 
-framesPerfps = 100
+framesPerfps = 300
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -403,9 +403,6 @@ async def send_messages(websocket):
             else:
                 CONNECTIONSTATUS = "Wifi"
 
-
-
-
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"FPS: {fps:.2f}, MAX {displayFPS}", (10, 90),
@@ -448,6 +445,8 @@ async def send_messages(websocket):
         size_kb = len(compressed_bytes) / 1024
         compression_time = (t1 - t0) * 1_000  # microseconds
 
+        bitrate = displayFPS * size_kb * 8 / 1000  # in Mbps
+
 
         encrypted_data, encryption_time = encrypt_data(compressed_bytes)
 
@@ -459,7 +458,7 @@ async def send_messages(websocket):
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"Compression time: {compression_time:.3f} ms", (10, 270),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.putText(display, f"JPG QUALITY: {JPEG_QUALITY} %, {size_kb:.2f} kb ", (10, 300),
+        cv2.putText(display, f"JPG QUALITY: {JPEG_QUALITY} %, {size_kb:.2f} kb, {bitrate:.2f} Mbps", (10, 300),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"Inference time: {INFERENCE_TIME:.3f} ms", (10, 330),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)

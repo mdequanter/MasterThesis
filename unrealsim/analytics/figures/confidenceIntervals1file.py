@@ -28,7 +28,6 @@ df = pd.read_csv(file_path)
 metric_labels = {
     "avg_latency_ms": "End-to-End Latency (ms)",
     "inference_ms": "Inference Time (ms)",
-    "processing_ms": "Processing Time (ms)",
     "avg_fps": "Average FPS",
     "avg_size_kb": "Frame size (kb)",
     "poweruse_W": "Power Use (W)",
@@ -39,7 +38,6 @@ metric_colors = {
     "End-to-End Latency (ms)": "royalblue",
     "Average FPS": "seagreen",
     "Inference Time (ms)": "darkorange",
-    "Processing Time (ms)" : "darkred",
     "Power Use (W)": "indianred",
     "Frame size (kb)": "yellow"
 }
