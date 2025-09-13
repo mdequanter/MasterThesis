@@ -165,7 +165,7 @@ if RASPICAM == True:
 
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
-capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 0)
+capture = cv2.VideoCapture(VIDEO_PATH if USE_VIDEO else 1)
 frame_id = 0
 frame_records = {}
 latency_ms = 0
