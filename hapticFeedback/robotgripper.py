@@ -85,26 +85,33 @@ async def main():
         while True:
             if latest_direction is not None:
                 angle_int = int(max(0, min(180, latest_direction)))
-                print (f"Ontvangen richting: {angle_int}")
+                print(f"Ontvangen richting: {angle_int}")
 
-                # Bepaal nieuwe motorcommando's l/r op basis van de hoek
-                if angle_int > 100:
-                    l, r = -2, 2        # draai rechts/links afhankelijk van kinematica
-                elif angle_int < 80:
-                    l, r = 2, -2
+                # Bereken afwijking tov 90°
+                deviation = abs(angle_int - 90)
+
+                # Deadband van ±5° rond 90
+                if deviation <= 5:
+                    l, r = 0, 0
                 else:
-                    l, r = 0, 0          # binnen deadband: stop
+                    # schaal afwijking naar 1..10
+                    # max_deviation bepaalt gevoeligheid (hier 90, maar je kan bv. 45 nemen voor sneller reageren)
+                    max_deviation = 90
+                    speed = min(10, max(1, int((deviation / max_deviation) * 10)))
 
-                # Verstuur alleen als er een wijziging is t.o.v. het laatst verzonden commando
+                    if angle_int > 90:
+                        # moet naar rechts draaien
+                        l, r = -speed, speed
+                    else:
+                        # moet naar links draaien
+                        l, r = speed, -speed
+
+                # Verstuur alleen als er een wijziging is
                 if (l, r) != (currentL, currentR):
                     currentL, currentR = l, r
                     send(l, r, 0, 70)
-                    print(f"Nieuwe servo angle: {angle_int}  -> send({l},{r},0,0)")
+                    print(f"Nieuwe servo angle: {angle_int}  -> send({l},{r},0,70)")
             else:
-                # Geen richting beschikbaar: optioneel stoppen (commentaar weg als gewenst)
-                # if (currentL, currentR) != (0, 0):
-                #     currentL, currentR = 0, 0
-                #     send(0, 0, 0, 0)
                 pass
 
             await asyncio.sleep(0.1)
