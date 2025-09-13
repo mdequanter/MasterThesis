@@ -86,7 +86,7 @@ async def main():
                 #ser.write(f"{angle_int}\n".encode())
                 if (angle_int > 95):
                     l=2
-                    l=-2
+                    r=-2
                 if (angle_int < 85):
                     l=-2
                     r=2
