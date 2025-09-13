@@ -85,11 +85,11 @@ async def main():
                 angle_int = int(max(0, min(180, latest_direction)))
                 #ser.write(f"{angle_int}\n".encode())
                 if (angle_int > 95):
-                    l=-30
-                    r=30
+                    l=-10
+                    r=10
                 if (angle_int < 85):
-                    l=30
-                    r=-30
+                    l=10
+                    r=-10
                 if (angle_int >= 85 and angle_int <= 95):
                     l=0
                     r=0
