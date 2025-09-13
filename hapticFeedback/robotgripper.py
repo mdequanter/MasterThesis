@@ -99,7 +99,7 @@ async def main():
                 if (currentL !=l or currentR != r):
                     currentL = l
                     currentR = r
-                    send(l,r,0,0)
+                    send(l,r,0,70)
                     print(f"Nieuwe Servo angle gestuurd: {angle_int}")
                 
             await asyncio.sleep(0.1)
