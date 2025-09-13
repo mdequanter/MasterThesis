@@ -97,7 +97,7 @@ async def main():
                 # Verstuur alleen als er een wijziging is t.o.v. het laatst verzonden commando
                 if (l, r) != (currentL, currentR):
                     currentL, currentR = l, r
-                    send(l, r, 0, 0)
+                    send(l, r, 0, 70)
                     print(f"Nieuwe servo angle: {angle_int}  -> send({l},{r},0,0)")
             else:
                 # Geen richting beschikbaar: optioneel stoppen (commentaar weg als gewenst)
