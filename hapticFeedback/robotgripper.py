@@ -79,6 +79,8 @@ async def main():
     currentL = 0
     currentR = 0
 
+    send(l,r,0,20)
+
     try:
         while True:
             if latest_direction is not None:
