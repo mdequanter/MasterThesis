@@ -75,6 +75,9 @@ async def main():
     # Start WebSocket task
     direction_task = asyncio.create_task(get_direction())
 
+
+    currentL = 0
+
     try:
         while True:
             if latest_direction is not None:
@@ -89,9 +92,13 @@ async def main():
                 if (angle_int >= 85 and angle_int <= 95):
                     l=0
                     r=0
-                send(l,r,0,0)
-                print(f"➡️ Servo angle gestuurd: {angle_int}")
-                time.sleep(1)
+
+                if (currentL !=l or currentR != r):
+                    currentL = l
+                    currentR = r
+                    send(l,r,0,0)
+                    print(f"Nieuwe Servo angle gestuurd: {angle_int}")
+                    time.sleep(0.2)
 
             await asyncio.sleep(0.1)
 
