@@ -85,23 +85,27 @@ async def main():
         while True:
             if latest_direction is not None:
                 angle_int = int(max(0, min(180, latest_direction)))
-                #ser.write(f"{angle_int}\n".encode())
-                if (angle_int > 92):
-                    l=-2
-                    r=2
-                if (angle_int < 88):
-                    l=2
-                    r=-2
-                if (angle_int >= 88 and angle_int <= 92):
-                    l=0
-                    r=0
 
-                if (currentL !=l or currentR != r):
-                    currentL = l
-                    currentR = r
-                    send(l,r,0,70)
-                    print(f"Nieuwe Servo angle gestuurd: {angle_int}")
-                
+                # Bepaal nieuwe motorcommando's l/r op basis van de hoek
+                if angle_int > 92:
+                    l, r = -2, 2        # draai rechts/links afhankelijk van kinematica
+                elif angle_int < 88:
+                    l, r = 2, -2
+                else:
+                    l, r = 0, 0          # binnen deadband: stop
+
+                # Verstuur alleen als er een wijziging is t.o.v. het laatst verzonden commando
+                if (l, r) != (currentL, currentR):
+                    currentL, currentR = l, r
+                    send(l, r, 0, 0)
+                    print(f"Nieuwe servo angle: {angle_int}  -> send({l},{r},0,0)")
+            else:
+                # Geen richting beschikbaar: optioneel stoppen (commentaar weg als gewenst)
+                # if (currentL, currentR) != (0, 0):
+                #     currentL, currentR = 0, 0
+                #     send(0, 0, 0, 0)
+                pass
+
             await asyncio.sleep(0.1)
 
     except KeyboardInterrupt:
