@@ -88,7 +88,7 @@ async def main():
                     l=2
                     r=-2
                 if (angle_int < 85):
-                    l=-
+                    l=-2
                     r=2
                 if (angle_int >= 85 and angle_int <= 95):
                     l=0
