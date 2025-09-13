@@ -85,6 +85,7 @@ async def main():
         while True:
             if latest_direction is not None:
                 angle_int = int(max(0, min(180, latest_direction)))
+                print (f"Ontvangen richting: {angle_int}")
 
                 # Bepaal nieuwe motorcommando's l/r op basis van de hoek
                 if angle_int > 95:
