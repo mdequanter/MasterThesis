@@ -88,9 +88,13 @@ async def main():
                 print (f"Ontvangen richting: {angle_int}")
 
                 # Bepaal nieuwe motorcommando's l/r op basis van de hoek
-                if angle_int > 100:
+                if angle_int > 105:
                     l, r = -2, 2        # draai rechts/links afhankelijk van kinematica
-                elif angle_int < 80:
+                if angle_int > 100:
+                    l, r = -1, 1
+                elif angle_int < 85:
+                    l, r = 1, -1
+                elif angle_int < 85:
                     l, r = 2, -2
                 else:
                     l, r = 0, 0          # binnen deadband: stop
