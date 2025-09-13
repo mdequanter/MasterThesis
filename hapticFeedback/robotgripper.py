@@ -79,7 +79,7 @@ async def main():
     currentL = 0
     currentR = 0
 
-    send(0,0,0,20)
+    send(0,0,0,40)
 
     try:
         while True:
