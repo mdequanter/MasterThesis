@@ -88,9 +88,9 @@ async def main():
 
                 # Bepaal nieuwe motorcommando's l/r op basis van de hoek
                 if angle_int > 92:
-                    l, r = -4, 4        # draai rechts/links afhankelijk van kinematica
+                    l, r = -2, 2        # draai rechts/links afhankelijk van kinematica
                 elif angle_int < 88:
-                    l, r = 4, -4
+                    l, r = 2, -2
                 else:
                     l, r = 0, 0          # binnen deadband: stop
 
