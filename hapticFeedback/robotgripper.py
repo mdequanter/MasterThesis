@@ -77,6 +77,7 @@ async def main():
 
 
     currentL = 0
+    currentR
 
     try:
         while True:
