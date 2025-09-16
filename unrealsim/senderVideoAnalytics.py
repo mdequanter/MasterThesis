@@ -28,6 +28,8 @@ import socket
 #fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
 #fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
 fps_choices = [10,10,12,14,16,18,20,22,24,26,28,30]  # the first one is only used to stabilize the system.
+fps_choices = [20,20]  # the first one is only used to stabilize the system.
+
 
 # ✅ Standaardinstellingen
 USE_VIDEO = False  # True = video, False = webcam
@@ -180,7 +182,7 @@ if ANALYTICS:
         writer = csv.writer(file)
         writer.writerow([
             "datetime", "signaling_server","resolution","max_fps",
-            "jpeg_quality", "avg_latency_ms", "avg_fps", "avg_size_kb",
+            "jpeg_quality","bitrate", "avg_latency_ms", "avg_fps", "avg_size_kb",
             "avg_compression_ms", "avg_encryption_ms","poweruse_W","inference_ms","queuesize","missed_frames","successful_frames", "last_frame_id","gps_coordinates","Connection"
         ])
  
@@ -459,7 +461,7 @@ async def send_messages(websocket):
         cv2.putText(display, f"Compression time: {compression_time:.3f} ms", (10, 270),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"JPG QUALITY: {JPEG_QUALITY} %, {size_kb:.2f} kb, {bitrate:.2f} Mbps", (10, 300),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
         cv2.putText(display, f"Inference time: {INFERENCE_TIME:.3f} ms", (10, 330),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.putText(display, f"Power use: {LATEST_POWER} W", (10, 360),
@@ -502,6 +504,7 @@ async def send_messages(websocket):
                         f"{WIDTH}x{HEIGHT}",
                         MAX_FPS,
                         JPEG_QUALITY,
+                        bitrate,
                         round(sum(acc["latency"]) / len(acc["latency"]), 2) if acc["latency"] else 0,
                         round(sum(acc["fps"]) / len(acc["fps"]), 2) if acc["fps"] else 0,
                         round(sum(acc["size"]) / len(acc["size"]), 2) if acc["size"] else 0,
