@@ -122,6 +122,45 @@ async def receive_messages():
                 else:
                     await websocket.send(json.dumps({"detected": False,"inference_time": inference_time, "frame_id": frame_id}))
 
+
+                current_time = time.time()
+                frame_times.append(current_time)
+                while frame_times and current_time - frame_times[0] > 1.0:
+                    frame_times.popleft()
+                fps_display = len(frame_times)
+
+                lastQuality = quality
+                if fps_display > wantedFramerate and frameCounter > 200:
+                    if current_time - last_executed_q >= 0.2:
+                        quality = min(quality + 10, maxQuality)
+                        if quality != lastQuality:
+                            print(f"📈 verhoog kwaliteit naar {quality}")
+                            await websocket.send(json.dumps({"quality": quality}))
+                        last_executed_q = current_time
+                if fps_display < wantedFramerate - 2 and frameCounter > 200:
+                    if current_time - last_executed_q >= 0.2:
+                        quality = max(quality - 10, 1)
+                        if quality != lastQuality:
+                            print(f"📉 verlaag kwaliteit naar {quality}")
+                            await websocket.send(json.dumps({"quality": quality}))
+                        last_executed_q = current_time
+
+                if current_time - last_status_time >= 5.0:
+                    print(f"🟢 Verbinding actief - ontvangen frames: {frameCounter}")
+                    last_status_time = current_time
+
+                if screenOutput:
+                    cv2.putText(overlay, f"Time: {message_json['timestamp']}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Resolution: {message_json['resolution']}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Size: {round(message_json['size_kb'], 2)} KB", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Comp. Time({quality})%: {round(message_json['compression_time_ms'], 2)} ms", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"Encryption: {round(message_json['encryption_time_ms'], 2)} ms", (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    #cv2.putText(overlay, f"FPS: {fps_display}", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    #cv2.putText(overlay, f"Inf.Time: {inference_time:.2f} ms", (10, 210), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
+                    cv2.putText(overlay, f"Direction: {round(direction_angle,2)} degrees", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    cv2.imshow("Ontvangen + Segmentatie + Richting", overlay)
+                    cv2.waitKey(1)
+
             except websockets.exceptions.ConnectionClosed:
                 print("🚫 Verbinding met server gesloten")
                 break
