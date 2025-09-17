@@ -32,7 +32,7 @@ def compute_ci(series):
 # === Group by max_fps and compute mean + CI for avg_latency_ms and mean for queue size ===
 records = []
 for fps_value, group in df.groupby("max_fps"):
-    latency_mean, latency_ci = compute_ci(group["avg_latency_ms"])
+    latency_mean, latency_ci = compute_ci(group["latency_ms"])
     queue_mean = round(group["queuesize"].mean(), 2)
     records.append({
         "max_fps": fps_value,
