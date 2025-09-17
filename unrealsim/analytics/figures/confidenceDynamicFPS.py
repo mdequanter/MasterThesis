@@ -3,9 +3,18 @@ import scipy.stats as stats
 import plotly.graph_objects as go
 from pathlib import Path
 import re
+import os
 
+directory = "unrealsim/analytics"
 # === Prompt user for CSV file ===
-file_path = input("Enter the path to the CSV file: ").strip()
+user_input = input("Enter the path to the CSV file (leave blank for latest): ").strip()
+
+if user_input:
+    file_path = user_input
+else:
+    csv_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(".csv")]
+    file_path = max(csv_files, key=os.path.getctime)
+    print("Automatically selected:", file_path)
 
 # === Extract default title from filename ===
 filename = Path(file_path).stem
