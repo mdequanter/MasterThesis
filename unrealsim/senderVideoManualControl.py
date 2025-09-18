@@ -27,7 +27,7 @@ import socket
 # ✅ Defaults (no fps list; start at 14 fps and JPG quality 50)
 USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
-MAX_FPS = 14
+MAX_FPS = 10
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 ANALYTICS = False
 ANALYTICSFILE = 'benchmark'
@@ -55,6 +55,9 @@ POWERCPU = 0
 QUEUESIZE = 0
 LAT = 0.0000
 LON = 0.0000
+
+def now_ns():
+    return time.perf_counter_ns()
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -278,7 +281,7 @@ async def send_messages(websocket):
 
     while not should_exit:
         frame_id += 1
-        frame_start = time.time()
+        frame_start = now_ns()
 
         frame_delay = 1.0 / MAX_FPS if MAX_FPS > 0 else 1.0 * abs(MAX_FPS)
 
@@ -315,7 +318,7 @@ async def send_messages(websocket):
             end_x = int(center_x + length * math.cos(rad))
             end_y = int(center_y - length * math.sin(rad))
             cv2.arrowedLine(display, (center_x, center_y), (end_x, end_y), (0, 0, 255), 5, tipLength=0.2)
-            cv2.putText(display, f"direction: {DIRECTION_ANGLE} deg", (10, 30),
+            cv2.putText(display, f"direction: {DIRECTION_ANGLE:.2f} deg", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         displayFPS = MAX_FPS if MAX_FPS > 0 else round(1 / (abs(MAX_FPS)), 2)
@@ -326,6 +329,8 @@ async def send_messages(websocket):
                 CONNECTIONSTATUS = get_connection_type(status)
             else:
                 CONNECTIONSTATUS = "Wifi"
+
+        #print (f"latency: {latency_ms:.2f} ms, FPS: {fps:.2f}, frame id: {frame_id}, successful frames: {successFullFrames}, missed frames: {missedFrames}, path detected: {PATH_DETECTED}, power use: {LATEST_POWER} W, gps: {LAT},{LON}, connection: {CONNECTIONSTATUS}")
 
         cv2.putText(display, f"latency: {latency_ms:.2f} ms", (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
@@ -365,7 +370,7 @@ async def send_messages(websocket):
             print(f"JPEG_QUALITY -> {JPEG_QUALITY}")
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        timestamp = now_ns()
         t0 = time.perf_counter()
         pil_image = Image.fromarray(frame_rgb)
         compressed_image_io = io.BytesIO()
@@ -442,8 +447,8 @@ async def send_messages(websocket):
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
-                missedFrames = 0
-                successFullFrames = 0
+                #missedFrames = 0
+                #successFullFrames = 0
 
         message = {
             "frame_id": frame_id,
@@ -455,12 +460,21 @@ async def send_messages(websocket):
             "timestamp": timestamp,
             "missed_frames": missedFrames
         }
-        frame_records[frame_id] = {'timestamp': time.time()}
+        
+        frame_records[frame_id] = {'timestamp': timestamp}
         await websocket.send(json.dumps(message))
+ 
+        # method to keep the frame rate and wait for returned ack
 
-        elapsed = time.time() - frame_start
-        sleep_time = max(0, frame_delay - elapsed)
-        await asyncio.sleep(sleep_time)
+        latency = frame_records.get(frame_id, {}).get('latency_ms')
+        while(latency is None):
+            latency = frame_records.get(frame_id, {}).get('latency_ms')
+            await asyncio.sleep(0.00001)
+        #print(f"latency: {latency:.2f} ms")
+        
+        #elapsed = (timestamp - frame_start) / 1_000_000_000.0
+        #sleep_time = (1.0 / MAX_FPS) - elapsed
+        #await asyncio.sleep(sleep_time)
 
 async def receive_messages(websocket):
     global JPEG_QUALITY, DIRECTION_ANGLE, frame_records, latency_ms, should_exit,PATH_DETECTED,lastPathDetected,PLAY_SOUND, missedFrames, successFullFrames,MAX_FPS
@@ -469,11 +483,25 @@ async def receive_messages(websocket):
         try:
             message = await websocket.recv()
             message_json = json.loads(message)
+            received = now_ns()
+
+            if 'frame_id' in message_json:
+                FRAME_ID = message_json['frame_id']
+                #print (f"✅ Ack received for frame {FRAME_ID}")
+                QUEUESIZE = frame_id - FRAME_ID
+
+                if FRAME_ID in frame_records:
+                    latency_ms = (received - frame_records[FRAME_ID]['timestamp']) / 1_000_000.0
+                    frame_records[FRAME_ID]['latency_ms'] = latency_ms
+
+
             if 'direction_angle' in message_json:
                 DIRECTION_ANGLE = message_json['direction_angle']
                 PATH_DETECTED = True
                 lastPathDetected = time.time()
                 successFullFrames += 1
+
+
             if 'detected' in message_json:
                 if not message_json['detected']:
                     missedFrames += 1
@@ -481,17 +509,8 @@ async def receive_messages(websocket):
                         PATH_DETECTED = False
                         DIRECTION_ANGLE = None
                         lastPathDetected = time.time()
-            if 'frame_id' in message_json:
-                FRAME_ID = message_json['frame_id']
-                QUEUESIZE = frame_id - FRAME_ID
-                received = time.time()
-                if FRAME_ID in frame_records:
-                    latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
             if 'inference_time_ms' in message_json:
                 INFERENCE_TIME = message_json['inference_time_ms']
-                received = time.time()
-                if FRAME_ID in frame_records:
-                    latency_ms = (received - frame_records[FRAME_ID]['timestamp']) * 1000
         except websockets.exceptions.ConnectionClosed:
             print("🚫 Connection closed by server")
             should_exit = True
@@ -504,6 +523,7 @@ async def main():
             send_messages(websocket),
             receive_messages(websocket)
         )
+    print (f"frame_records: {frame_records}")
     print("⏹️ Normal shutdown or 'q' pressed.")
 
 try:

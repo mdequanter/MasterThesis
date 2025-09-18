@@ -27,7 +27,7 @@ import socket
 
 #fps_choices = [2,2,3,4,5,6,7,8,9,10]  # the first one is only used to stabilize the system.
 #fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
-fps_choices = [20,10,12,14,16,18,20,22,24,26,28,30] # the first one is only used to stabilize the system.
+fps_choices = [10,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40] # the first one is only used to stabilize the system.
 #fps_choices = [20,21,22,23,24,25,26]  # the first one is only used to stabilize the system.
 
 
@@ -51,19 +51,19 @@ missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
 nr_frames = 0  # Counter for successful frames
 REPLAY_VIDEO = False  # True = replay video after end, False = stop after last 
-FRAMELIMIT = 110000
+FRAMELIMIT = 16800
 GPS_ENABLED = False  # True = GPS tracking aan, False = uit
-MEASURE_POWER = False  # True = Power meten via MQTT, False = geen power meting
+MEASURE_POWER = True  # True = Power meten via MQTT, False = geen power meting
+POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used. When using a power meter, set to 0
 
 MAX_JPEG_QUALITY = JPEG_QUALITY
 INFERENCE_TIME = 0
 LATEST_POWER = 0
-POWERCPU = 0    # set to max power at CPU 100% load,  if set to 0, Powercalculation via CPU load is not used. When using a power meter, set to 0
 QUEUESIZE = 0
 LAT = 0.0000
 LON = 0.0000
 
-framesPerfps = 1400
+framesPerfps = 100
 
 # ✅ Commandline parsing
 for arg in sys.argv[1:]:
@@ -281,7 +281,8 @@ def mqtt_thread():
     client.loop_forever()
 
 # Start MQTT in a separate thread
-if (POWERCPU == 0 and MEASURE_POWER == True):
+if (POWERCPU == 0 and MEASURE_POWER == True ):
+    print ("🔌 Starting MQTT thread for power measurement")
     threading.Thread(target=mqtt_thread, daemon=True).start()
 
 def play_sound(sound_file):
@@ -495,7 +496,7 @@ async def send_messages(websocket):
             acc["queuesize"].append(QUEUESIZE)
 
 
-            if (time.time() - slot_start_time >= 1.0):   # 1==1  record each frame
+            if (time.time() - slot_start_time >= 1.0 or 1 == 1):   # 1==1  record each frame
                 with open(csv_filename, mode='a', newline='') as file:
                     writer = csv.writer(file)
                     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -522,8 +523,8 @@ async def send_messages(websocket):
                     ])
                 acc = {k: [] for k in acc}
                 slot_start_time = time.time()
-                missedFrames = 0  # Reset missed frames counter every 10 seconds
-                successFullFrames = 0  # Reset successful frames counter every 10 seconds
+                #missedFrames = 0  # Reset missed frames counter every 10 seconds
+                #successFullFrames = 0  # Reset successful frames counter every 10 seconds
 
         message = {
             "frame_id": frame_id,

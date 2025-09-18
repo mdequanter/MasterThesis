@@ -11,7 +11,10 @@ description = input("Enter a description for this ping session: ").strip()
 # === Hosts to ping ===
 HOSTS = [
     ("8.8.8.8", "Google_DNS"),
-    ("94.111.36.87", "Signaling_Server")
+    ("94.111.36.87", "Signaling_Server"),
+    ("192.168.0.74", "Local_Signaling"),
+    ("192.168.0.78", "Inference_Server")
+
 ]
 
 # === CSV file path ===
@@ -98,4 +101,4 @@ while True:
         print(f"[{timestamp}] {host_label}: {mean_latency} ms (saved)")
 
     # Wait 60 seconds before next measurement
-    time.sleep(60)
+    time.sleep(1)
