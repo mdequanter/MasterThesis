@@ -52,16 +52,9 @@ fig = go.Figure()
 
 # Define colors for consistency
 color_palette = [
-    "#636EFA",  # blue
-    "#EF553B",  # red
-    "#00CC96",  # green
-    "#AB63FA",  # purple
-    "#FFA15A",  # orange
-    "#19D3F3",  # cyan
-    "#FF6692",  # pink
-    "#B6E880",  # light green
-    "#FF97FF",  # magenta
-    "#FECB52",  # yellow
+    "#00CC96", "#B6E880", "#EF553B", "#FFA15A",
+    "#636EFA", "#AB63FA", "#19D3F3", "#FF6692",
+    "#FF97FF", "#FECB52",
 ]
 
 # Process each file
@@ -75,13 +68,11 @@ for idx, file in enumerate(all_files):
 
     records = []
     for fps_value, group in df_filtered.groupby("max_fps"):
-        latency_mean, latency_ci = compute_ci(group["avg_latency_ms"])
-        queue_mean = round(group["queuesize"].mean(), 2)
+        latency_mean, latency_ci = compute_ci(group["latency_ms"])
         records.append({
             "max_fps": fps_value,
             "LatencyMean": latency_mean,
             "Latency95CI": latency_ci,
-            "QueueMean": queue_mean,
             "Label": f"{latency_mean} ± {latency_ci}"
         })
 
@@ -105,40 +96,23 @@ for idx, file in enumerate(all_files):
             insidetextanchor="middle",
             name=f"Latency ({legend_name})",
             marker_color=color,
-            textfont=dict(size=16, color="white")  # Use white font for contrast
-        )
-    )
-
-    # Dotted line trace for Queue Size, with text labels
-    fig.add_trace(
-        go.Scatter(
-            x=ci_df["max_fps"].astype(str),
-            y=ci_df["QueueMean"],
-            mode="lines+markers+text",
-            line=dict(color=color, width=2, dash="dot"),
-            textfont=dict(size=14),
-            name=f"Queue Size ({legend_name})",
-            yaxis="y2"
+            textfont=dict(size=16, color="white")
         )
     )
 
 # Add horizontal threshold line at 200 ms
 fig.add_shape(
     type="line",
-    x0=-0.5,  # extend across all x
+    x0=-0.5,
     x1=len(ci_df["max_fps"].unique()) - 0.5,
     y0=200,
     y1=200,
-    line=dict(
-        color="black",
-        width=2,
-        dash="dash"
-    )
+    line=dict(color="black", width=2, dash="dash")
 )
 
 # Add annotation label for threshold
 fig.add_annotation(
-    x=0,  # anchor on the left
+    x=0,
     y=200,
     xref="x",
     yref="y",
@@ -151,7 +125,7 @@ fig.add_annotation(
     borderwidth=0
 )
 
-# Layout (no title)
+# Layout (no second y-axis anymore)
 fig.update_layout(
     template="plotly_white",
     font=dict(size=16),
@@ -159,11 +133,6 @@ fig.update_layout(
     yaxis=dict(
         title="Latency (ms)",
         tickformat=".2f"
-    ),
-    yaxis2=dict(
-        title="Queue Size",
-        overlaying="y",
-        side="right"
     ),
     legend=dict(
         orientation="h",

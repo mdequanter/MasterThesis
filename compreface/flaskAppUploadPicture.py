@@ -6,7 +6,7 @@ from flask import Flask, request, redirect, url_for, render_template_string, fla
 import requests
 
 # ============ Config ============
-DEFAULT_BASE_URL = "http://192.168.0.61:8000"
+DEFAULT_BASE_URL = "localhost:8000"
 MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB uploadlimiet
 
 HTML_INDEX = """

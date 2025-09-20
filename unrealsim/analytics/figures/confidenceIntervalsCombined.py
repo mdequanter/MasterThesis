@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 # === Directory with all CSV files ===
-folder_path = Path("unrealsim/analytics/local")
+folder_path = Path("unrealsim/analytics/external")
 
 # === Load and sort all CSV files ===
 all_files = sorted(folder_path.glob("*.csv"), key=lambda f: f.name.lower())
@@ -34,7 +34,7 @@ final_title = title_input if title_input else default_title
 
 # === Metrics and clean descriptions ===
 metric_labels = {
-    "avg_latency_ms": "End-to-End Latency (ms)",
+    "latency_ms": "End-to-End Latency (ms)",
     "inference_ms": "Inference Time (ms)",
     "processing_ms": "Processing Time (ms)",
     "avg_fps": "Average FPS",
