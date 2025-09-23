@@ -281,7 +281,20 @@ def main():
                       f"Server: {ookla.get('server_name')} ({ookla.get('server_loc')})")
 
         # CSV write
+
+
         if args.csv:
+
+            keys = [
+                "ts", "verdict",
+                "lte_band", "lte_chan", "lte_bw", "lte_rsrp", "lte_rsrq", "lte_sinr",
+                "nr_band", "nr_chan", "nr_bw", "nr_rsrp", "nr_rsrq", "nr_sinr",
+                "gps_lat", "gps_lon", "gps_alt_m", "gps_fix_quality", "gps_sats",
+                "lte_line", "nr_line",
+                "download_Mbps", "upload_Mbps", "latency_ms", "jitter_ms",
+                "packetLoss_pct", "server_name", "server_loc", "isp", "error"
+    ]
+
             row = [
                 ts, verdict,
                 lte_band, lte_chan, lte_bw, lte_rsrp, lte_rsrq, lte_sinr,
@@ -298,7 +311,9 @@ def main():
                 (ookla.get("isp") if ookla else None),
                 (ookla.get("error") if "error" in ookla else None),
             ]
-            write_csv(args.csv, header, row)
+        print("Row preview:")
+        for k, v in zip(keys, row):
+            print(f"{k}: {v}")  
 
         # Stop after N runs if requested
         if args.runs and iteration >= args.runs:
