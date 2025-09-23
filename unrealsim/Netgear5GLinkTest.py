@@ -315,6 +315,8 @@ def main():
         for k, v in zip(keys, row):
             print(f"{k}: {v}")  
 
+        write_csv(args.csv, header, row)
+
         # Stop after N runs if requested
         if args.runs and iteration >= args.runs:
             print("Reached requested number of runs. Exiting.")
