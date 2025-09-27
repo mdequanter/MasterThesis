@@ -4,7 +4,7 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 
 RTSP_URL = "rtsp://admin:Nijverheidskaai170@10.2.172.109"
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
+SIGNALING_SERVER = "ws://94.111.36.87:9000"
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 JPEG_QUALITY = 50
 MAX_FPS = 10
