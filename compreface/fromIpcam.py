@@ -1,35 +1,43 @@
-# ipcam_recognizer.py
-import os, sys, time, argparse, threading
+# ipcam_motion_recognizer.py
+import os, sys, time, argparse, threading, queue, datetime
 import requests
 import cv2
 import numpy as np
 
 def parse_args():
-    p = argparse.ArgumentParser("IP camera → CompreFace recognizer")
+    p = argparse.ArgumentParser("IP camera → motion-triggered CompreFace recognizer")
     p.add_argument("--rtsp", required=True, help="RTSP/HTTP URL, e.g. rtsp://user:pass@host/stream")
-    p.add_argument("--api-key", default=os.getenv("CFX_API_KEY"), required=False, help="CompreFace API key")
+    p.add_argument("--api-key", default=os.getenv("CFX_API_KEY"), help="CompreFace API key")
     p.add_argument("--url", default=os.getenv("CFX_URL", "http://localhost:8000"), help="CompreFace base URL")
-    p.add_argument("--plugins", default=os.getenv("CFX_PLUGINS", "none"), help="face_plugins, e.g. age,gender or none")
-    p.add_argument("--topk", type=int, default=int(os.getenv("CFX_TOPK", "1")), help="prediction_count")
+    p.add_argument("--plugins", default=os.getenv("CFX_PLUGINS", ""), help="comma list: age,gender,landmarks,mask")
+    p.add_argument("--topk", type=int, default=int(os.getenv("CFX_TOPK", "1")), help="prediction_count/limit")
     p.add_argument("--det-prob", type=float, default=float(os.getenv("CFX_DET_PROB", "0.6")), help="detector prob 0..1")
-    p.add_argument("--interval-ms", type=int, default=500, help="send every N ms")
     p.add_argument("--timeout", type=int, default=int(os.getenv("CFX_TIMEOUT", "8")), help="HTTP timeout seconds")
-    p.add_argument("--resize", default="", help="optional WxH resize before sending, e.g. 640x360")
-    p.add_argument("--display", action="store_true", help="show annotated preview window")
-    p.add_argument("--label-thresh", type=float, default=0.6, help="draw label as OK if similarity>=thresh")
+    p.add_argument("--resize", default="", help="optional WxH before processing, e.g. 640x360")
+    p.add_argument("--display", action="store_true", help="show live window")
+    # Motion settings
+    p.add_argument("--motion-ratio", type=float, default=0.002, help="ratio of moving pixels to trigger (0..1)")
+    p.add_argument("--motion-min-px", type=int, default=1500, help="absolute pixel threshold floor")
+    p.add_argument("--cooldown-s", type=float, default=2.0, help="min seconds between triggers")
+    # Saving
+    p.add_argument("--save-dir", default="captures", help="folder for printscreens and results")
+    p.add_argument("--jpeg-quality", type=int, default=90, help="JPEG quality for saved images")
+    p.add_argument("--label-thresh", type=float, default=0.6, help="OK color if similarity>=thresh")
     return p.parse_args()
 
 class Recognizer:
     def __init__(self, base_url, api_key, plugins, topk, det_prob, timeout):
+        if not api_key:
+            print("Missing --api-key or CFX_API_KEY", file=sys.stderr); sys.exit(1)
         self.rec_url = base_url.rstrip("/") + "/api/v1/recognition/recognize"
         self.headers = {"x-api-key": api_key}
         self.params = {
+            "limit": max(1, int(topk)),
             "prediction_count": max(1, int(topk)),
             "det_prob_threshold": float(det_prob),
-            "face_plugins": plugins,
-            "status": "false",
-            "detect_faces": "true",
         }
+        if plugins:
+            self.params["face_plugins"] = plugins
         self.timeout = int(timeout)
 
     def recognize(self, bgr_img):
@@ -38,7 +46,11 @@ class Recognizer:
             return {"faces": []}
         files = {"file": ("frame.jpg", buf.tobytes(), "image/jpeg")}
         r = requests.post(self.rec_url, headers=self.headers, params=self.params, files=files, timeout=self.timeout)
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.HTTPError:
+            print(f"HTTP {r.status_code}: {r.text[:300]}")
+            raise
         data = r.json()
         faces = []
         for item in (data.get("result") or []):
@@ -78,15 +90,22 @@ def draw_faces(img, faces, ok_thresh):
         cv2.rectangle(img, (x1, y_text - th - 6), (x1 + tw + 6, y_text + 3), color, -1)
         cv2.putText(img, label, (x1 + 3, y_text), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0,0,0), 1, cv2.LINE_AA)
 
+def timestamp():
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
 def main():
     args = parse_args()
-    if not args.api_key:
-        print("Missing --api-key or CFX_API_KEY", file=sys.stderr); sys.exit(1)
+    os.makedirs(args.save_dir, exist_ok=True)
 
-    rec = Recognizer(args.url, args.api_key, args.plugins, args.topk, args.det_prob, args.timeout)
+    # Camera
+    cap = cv2.VideoCapture(args.rtsp, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_FPS, 25)
+    if not cap.isOpened():
+        print("Failed to open camera", file=sys.stderr); sys.exit(3)
 
-    # optional resize
-    target_wh = None
+    # Optional resize
+    target_wh = 800, 600
     if args.resize:
         try:
             w, h = args.resize.lower().split("x")
@@ -94,82 +113,121 @@ def main():
         except:
             print("Invalid --resize, expected WxH", file=sys.stderr); sys.exit(2)
 
-    cap = None
-    last_connect = 0
-    frame = None
-    frame_lock = threading.Lock()
-    stop_flag = False
+    # Background subtractor
+    bg = cv2.createBackgroundSubtractorMOG2(history=300, varThreshold=16, detectShadows=True)
 
-    def grab_loop():
-        nonlocal cap, last_connect, frame, stop_flag
-        while not stop_flag:
-            if cap is None or not cap.isOpened():
-                now = time.time()
-                if now - last_connect < 2:
-                    time.sleep(0.5); continue
-                print("Connecting to camera...")
-                # Prefer FFmpeg backend for RTSP stability
-                cap = cv2.VideoCapture(args.rtsp, cv2.CAP_FFMPEG)
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                cap.set(cv2.CAP_PROP_FPS, 25)
-                last_connect = now
-                if not cap.isOpened():
-                    print("Open failed. Retry soon.")
-                    time.sleep(1)
-                    continue
-            ok, f = cap.read()
+    # Motion → recognition queue
+    q = queue.Queue(maxsize=2)
+    rec = Recognizer(args.url, args.api_key, args.plugins, args.topk, args.det_prob, args.timeout)
+
+    last_trigger = 0.0
+    jpeg_q = int(np.clip(args.jpeg_quality, 50, 100))
+
+    # Worker for recognition only when motion frames arrive
+    def worker():
+        while True:
+            item = q.get()
+            if item is None:
+                break
+            raw_img, path_base = item
+            try:
+                # Save raw printscreen
+                raw_path = f"{path_base}.jpg"
+                cv2.imencode(".jpg", raw_img, [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_q])[1].tofile(raw_path)
+
+                # Face detection
+                # inside the motion trigger when faces are detected
+                res = rec.recognize(frame)
+                faces = res.get("faces", [])
+
+                if faces:
+                    subj = faces[0]["subject"].replace(" ", "_")
+                    sim  = f"{faces[0]['similarity']:.2f}"
+                else:
+                    subj = "Unknown"
+                    sim  = "0.00"
+
+                fname_base = f"{subj}_{sim}_{timestamp()}"
+                raw_path = os.path.join(args.save_dir, f"{fname_base}.jpg")
+                ann_path = os.path.join(args.save_dir, f"{fname_base}_det.jpg")
+
+                cv2.imwrite(raw_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), args.jpeg_quality])
+                out = frame.copy()
+                if faces:
+                    draw_faces(out, faces, args.label_thresh)
+                cv2.imwrite(ann_path, out, [int(cv2.IMWRITE_JPEG_QUALITY), args.jpeg_quality])
+
+                print(f"Saved {raw_path}, {len(faces)} faces")
+
+            except Exception as e:
+                print(f"Worker error: {e}")
+            finally:
+                q.task_done()
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+
+    try:
+        while True:
+            ok, frame = cap.read()
             if not ok:
-                print("Read failed. Reconnecting.")
-                cap.release(); cap = None
+                print("Read failed, retrying...")
                 time.sleep(0.2)
                 continue
+
             if target_wh:
-                f = cv2.resize(f, target_wh, interpolation=cv2.INTER_AREA)
-            with frame_lock:
-                frame = f
-            if not args.display:
-                # Small sleep to avoid tight loop if not previewing
+                frame = cv2.resize(frame, target_wh, interpolation=cv2.INTER_AREA)
+
+            # Motion detection
+            fg = bg.apply(frame)
+            # Remove shadows and noise
+            _, fg_bin = cv2.threshold(fg, 200, 255, cv2.THRESH_BINARY)
+            fg_bin = cv2.morphologyEx(fg_bin, cv2.MORPH_OPEN, np.ones((3,3), np.uint8), iterations=1)
+
+            moving_px = int(cv2.countNonZero(fg_bin))
+            h, w = frame.shape[:2]
+            dyn_thresh = max(args.motion_min_px, int(args.motion_ratio * w * h))
+            motion = moving_px >= dyn_thresh
+
+            # Trigger on motion with cooldown
+            now = time.time()
+            if motion and (now - last_trigger) >= args.cooldown_s:
+                last_trigger = now
+                base = os.path.join(args.save_dir, f"{timestamp()}")
+                # Push a copy so UI remains smooth
+                try:
+                    if not q.full():
+                        q.put_nowait((frame.copy(), base))
+                    else:
+                        # Drop if queue busy
+                        pass
+                except queue.Full:
+                    pass
+
+            if args.display:
+                # Small HUD
+                disp = frame.copy()
+                if motion:
+                    cv2.putText(disp, "MOTION", (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,0,255), 2, cv2.LINE_AA)
+                cv2.putText(disp, f"px:{moving_px} thr:{dyn_thresh}", (10, 58),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1, cv2.LINE_AA)
+                cv2.imshow("IPCam Motion+Recognition (on trigger)", disp)
+                if cv2.waitKey(1) & 0xFF == 27:  # ESC
+                    break
+            else:
+                # Yield a bit
                 time.sleep(0.001)
 
-    def infer_loop():
-        nonlocal stop_flag
-        interval = max(50, args.interval_ms) / 1000.0
-        while not stop_flag:
-            t0 = time.time()
-            img = None
-            with frame_lock:
-                if frame is not None:
-                    img = frame.copy()
-            if img is not None:
-                try:
-                    res = rec.recognize(img)
-                    faces = res.get("faces", [])
-                    draw_faces(img, faces, args.label_thresh)
-                    if args.display:
-                        cv2.imshow("IPCam Recognition", img)
-                        if cv2.waitKey(1) & 0xFF == 27:  # ESC
-                            break
-                except requests.RequestException as e:
-                    print(f"HTTP error: {e}")
-                except Exception as e:
-                    print(f"Error: {e}")
-            dt = time.time() - t0
-            sleep = max(0.0, interval - dt)
-            time.sleep(sleep)
-        stop_flag = True
-
-    t_grab = threading.Thread(target=grab_loop, daemon=True)
-    t_grab.start()
-    try:
-        infer_loop()
     finally:
-        stop_flag = True
-        t_grab.join(timeout=1.0)
         try:
-            if cap: cap.release()
-        except: pass
+            cap.release()
+        except:
+            pass
         if args.display:
             cv2.destroyAllWindows()
+        # stop worker
+        q.put(None)
+        t.join(timeout=1.0)
 
 if __name__ == "__main__":
     main()
