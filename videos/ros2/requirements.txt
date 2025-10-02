@@ -1,3 +1,0 @@
-transforms3d==0.4.2
-ultralytics==8.3.128
-scapy==2.6.1
