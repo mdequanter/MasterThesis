@@ -4,7 +4,7 @@ All code used to support the Masterthesis
 Ultralytics Installation on JetPack 6.1 (Jetson Platform)
 =========================================================
 
-This guide will walk you through installing the **Ultralytics** package with export functionality on a Jetson device running **JetPack 6.1**. Our primary focus is enabling **TensorRT exports** to optimize performance on the Jetson platform.
+This guide will walk you through installing the **Ultralytics** package with export functionality on a Jetson device running **JetPack 6.1**. Our primary focus is enabling **TensorRT exports** to optimize performance on the Jetson platform. Source: https://docs.ultralytics.com/guides/nvidia-jetson/#install-ultralytics-package
 
 Steps:
 
