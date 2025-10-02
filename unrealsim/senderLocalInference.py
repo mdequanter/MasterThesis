@@ -69,6 +69,14 @@ print(f"RASPICAM: {RASPICAM}")
 print(f"MODEL: {MODEL_PATH}")
 print(f"POWERCPU: {POWERCPU}")
 
+
+import torch
+torch.backends.cudnn.benchmark = True
+try:
+    torch.set_float32_matmul_precision('high')
+except Exception:
+    pass
+
 # ✅ Load model
 model = YOLO(MODEL_PATH, verbose=True)
 
