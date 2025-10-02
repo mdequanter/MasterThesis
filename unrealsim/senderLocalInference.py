@@ -16,8 +16,8 @@ import io
 fps_choices = [20, 22, 24, 26, 28, 30, 32, 34, 36]
 
 # ✅ Default settings   
-USE_VIDEO = False
-VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
+USE_VIDEO = True
+VIDEO_PATH = "unrealsim/videos/unrealv2_640x480.mp4"
 ANALYTICS = True
 ANALYTICSFILE = 'benchmark'
 JPEG_QUALITY = 50
