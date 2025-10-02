@@ -23,7 +23,7 @@ ANALYTICSFILE = 'benchmark'
 JPEG_QUALITY = 50
 WIDTH = 640
 HEIGHT = 480
-DISPLAY_FRAME = False
+DISPLAY_FRAME = True
 RASPICAM = False
 REPLAY_VIDEO = False
 FRAMELIMIT = 3000
@@ -139,6 +139,8 @@ currentFrameCount = 0
 nrFps = len(fps_choices)
 prev_frame_time = None
 inference_time_ms = 0
+processing_ms = 0
+latency_ms = 0
 
 while True:
     frame_id += 1
