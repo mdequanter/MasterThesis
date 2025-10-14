@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 
 # --- Settings ---
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
+SIGNALING_SERVER = "ws://192.168.0.79:9000"
 AES_KEY = b'C\x03\xb6\xd2\xc5\t.Brp\x1ce\x0e\xa4\xf6\x8b\xd2\xf6\xb0\x8a\x9c\xd5D\x1e\xf4\xeb\x1d\xe6\x0c\x1d\xff '
 
 # Optional CLI overrides: SIGNALING_SERVER=ws://host:port
