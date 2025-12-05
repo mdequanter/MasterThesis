@@ -22,7 +22,7 @@ selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
 
 # ✅ Opslag-instellingen (globaal)
-SAVE_FRAME_EVERY_SECONDS = 5   # 👈 maximaal 1 frame per 5s
+SAVE_FRAME_EVERY_SECONDS = 60  # 👈 maximaal 1 frame per 5s
 FRAMES_DIR = "saved_frames"    # 👈 doelmap voor opgeslagen frames
 _last_saved_ts = 0.0           # 👈 interne timestamp (niet aanpassen)
 
