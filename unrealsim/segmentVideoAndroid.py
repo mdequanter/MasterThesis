@@ -147,8 +147,8 @@ async def receive_messages():
                     if selectedModel is not None and selectedModel != selectedModelLast:
 
                         if selectedModel == "recordmode":
-                            selectedModel = standardModel
-                            MODEL = "unrealsim/models/" + standardModel
+                            #selectedModel = standardModel
+                            #MODEL = "unrealsim/models/" + standardModel
                             recordMode = True
                             print("Recordmode aan")
                             selectedModelLast = selectedModel
