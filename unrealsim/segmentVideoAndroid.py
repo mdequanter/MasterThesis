@@ -43,6 +43,7 @@ for arg in sys.argv[1:]:
 
 print(f"Signaling Server: {SIGNALING_SERVER}")
 print(f"MODEL: {MODEL}")
+print(f"Output to screen: {screenOutput}")
 
 wantedFramerate = 8
 maxQuality = 60
