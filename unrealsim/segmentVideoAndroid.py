@@ -121,7 +121,6 @@ async def receive_messages():
                     # fallback: er komt eventueel ook een JSON met base64 frame
                     if "data" in payload:
                         frame = decode_message_to_frame(message)
-                        print("Decoded frame from JSON message")
                         # pak frame_id als die in payload zit (optioneel)
                         frame_id = payload.get("frame_id", pending_frame_id)
                         pending_frame_id = None
@@ -137,6 +136,7 @@ async def receive_messages():
                 frame = decode_message_to_frame(message)
                 frame_id = pending_frame_id
                 pending_frame_id = None
+                print("Decoded frame from JSON message")
 
             # Geen bruikbaar frame
             if frame is None:
