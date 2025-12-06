@@ -112,6 +112,10 @@ async def receive_messages():
                         MODEL = "unrealsim/models/" + selectedModelLast
                         model = YOLO(MODEL, verbose=True)
 
+                    if msg_type == "stats":
+                        print ("📊 Stats:", payload)
+
+
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
