@@ -10,7 +10,7 @@ import os  # 👈 toegevoegd
 from collections import deque
 from ultralytics import YOLO
 
-# ✅ Settings
+# ✅ Settings 
 screenOutput = False
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
