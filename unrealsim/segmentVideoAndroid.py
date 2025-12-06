@@ -29,7 +29,7 @@ selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
 
 
-img = cv2.imread("saved_frames/frame_3026_20251206-152615.jpg")
+img = cv2.imread("/saved_frames/frame_3026_20251206-152615.jpg")
 cv2.imshow("Afbeelding", img)
 
 
