@@ -29,8 +29,6 @@ selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
 
 
-img = cv2.imread("saved_frames/frame_3026_20251206-152615.jpg")
-cv2.imshow("Afbeelding", img)
 
 
 # ✅ Opslag-instellingen (globaal)
@@ -227,6 +225,8 @@ async def receive_messages():
             results = model(frame, conf=DETECTION_CONFIDENCE, verbose=False)
             end_inference = time.time()
             inference_time_ms = (end_inference - start_inference) * 1000.0
+
+            cv2.imshow("frame content", frame)
 
             # Optioneel: teken overlay voor debugging
             overlay = frame if screenOutput else None
