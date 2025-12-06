@@ -10,7 +10,14 @@ import os  # 👈 toegevoegd
 from collections import deque
 from ultralytics import YOLO
 
+import csv                       
+from datetime import datetime    
+
+
+
 # ✅ Settings 
+CSV_PATH = "androidApp.csv"
+
 screenOutput = False
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
@@ -49,6 +56,30 @@ maxQuality = 60
 TARGET_WIDTH, TARGET_HEIGHT = 640, 480
 
 model = YOLO(MODEL, verbose=True)
+
+
+def append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name):
+    """
+    Schrijft één rij naar telemetry_log.csv.
+    Maakt het bestand + header automatisch aan als het nog niet bestaat.
+    """
+    file_exists = os.path.exists(CSV_PATH)
+
+    # a = append, newline="" om extra lege regels op Windows te vermijden
+    with open(CSV_PATH, mode="a", newline="") as f:
+        writer = csv.writer(f)
+        # Header schrijven als bestand nog niet bestond
+        if not file_exists:
+            writer.writerow(["timestamp_iso", "latency_ms", "longitude", "latitude", "model"])
+
+        writer.writerow([
+            timestamp_iso,
+            latency_ms if latency_ms is not None else "",
+            longitude if longitude is not None else "",
+            latitude if latitude is not None else "",
+            model_name if model_name is not None else "",
+        ])
+
 
 def decode_message_to_frame(msg):
     """
@@ -119,8 +150,15 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
+                        timestamp_iso = datetime.utcnow().isoformat()
+                        latency_ms = payload.get('latency_ms')
+                        longitude = payload.get('longitude')
+                        latitude = payload.get('latitude')
+                        model_name = payload.get('selectedModel')
+                        
+                        append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
 
-                        print (f"latency: {payload.get('latency_ms')}, longitude: {payload.get('longitude')}, latitude: {payload.get('latitude')}, selectedModel: {payload.get('selectedModel')}")
+                        print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
