@@ -144,7 +144,7 @@ async def receive_messages():
                     msg_type = payload.get("type")
                     #print(f"inhoud bericht:{payload}")
                     
-                    modelConfidence = payload.get("modelConfidence")
+                    modelConfidence = payload.get("ModelConfidence")
                     if modelConfidence is not None:
                         modelConfidence = float(int(modelConfidence)/100)
                         DETECTION_CONFIDENCE = modelConfidence
