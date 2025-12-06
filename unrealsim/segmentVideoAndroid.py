@@ -89,6 +89,7 @@ async def receive_messages():
         pending_frame_id = None  # wordt gezet door voorafgaande frame_meta
 
         while True:
+            print("Waiting for message...")
             try:
                 message = await websocket.recv()
                 print(f"Message: {message}")
