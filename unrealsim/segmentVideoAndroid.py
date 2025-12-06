@@ -117,6 +117,7 @@ async def receive_messages():
     global selectedModelLast, selectedModel
     global _last_saved_ts  # 👈 nodig om de throttle-timestamp te wijzigen
     global recordMode    # 👈 om recordMode te wijzigen
+    global MODEL
 
     async with websockets.connect(SIGNALING_SERVER, max_size=None) as websocket:
         print(f"✅ Verbonden met Signaling Server: {SIGNALING_SERVER}")
@@ -145,6 +146,7 @@ async def receive_messages():
 
                         if selectedModel == "recordmode":
                             selectedModel = standardModel
+                            MODEL = "unrealsim/models/" + standardModel
                             recordMode = True
                             print("🔴 Recordmode aan")
 
