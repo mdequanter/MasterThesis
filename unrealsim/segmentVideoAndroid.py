@@ -226,12 +226,14 @@ async def receive_messages():
             end_inference = time.time()
             inference_time_ms = (end_inference - start_inference) * 1000.0
 
-            cv2.imshow("frame content", frame)
+            
 
             # Optioneel: teken overlay voor debugging
             overlay = frame if screenOutput else None
             height, width = frame.shape[:2]
             midpoints = []
+
+            cv2.imshow("frame content", overlay)
 
             for result in results:
                 if result.masks is not None:
