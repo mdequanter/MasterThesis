@@ -115,8 +115,6 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
-                        latency = payload.get("latency", 0)
-                        print (f"📩 Frame meta ontvangen: frame_id={pending_frame_id}, latency={latency}ms")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
@@ -125,6 +123,8 @@ async def receive_messages():
                         frame = decode_message_to_frame(message)
                         # pak frame_id als die in payload zit (optioneel)
                         frame_id = payload.get("frame_id", pending_frame_id)
+                        latency = payload.get("latency", 0)
+                        print (f"📩 Frame meta ontvangen: frame_id={pending_frame_id}, latency={latency}ms")
                         pending_frame_id = None
                     else:
                         # Onbekend JSON-bericht → negeren
