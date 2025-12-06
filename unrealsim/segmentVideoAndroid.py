@@ -150,9 +150,11 @@ async def receive_messages():
                             selectedModel = standardModel
                             MODEL = "unrealsim/models/" + standardModel
                             recordMode = True
-                            print("🔴 Recordmode aan")
+                            print("Recordmode aan")
+                            selectedModelLast = selectedModel
                         else:
                             if (selectedModelLast != selectedModel):
+                                print("Recordmode uit")
                                 recordMode = False
                                 print(f"New model selected: {selectedModel}")
                                 selectedModelLast = selectedModel
