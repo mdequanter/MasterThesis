@@ -121,6 +121,8 @@ async def receive_messages():
 
     async with websockets.connect(SIGNALING_SERVER, max_size=None) as websocket:
         print(f"✅ Verbonden met Signaling Server: {SIGNALING_SERVER}")
+        global recordMode
+
 
         pending_frame_id = None  # wordt gezet door voorafgaande frame_meta
 
