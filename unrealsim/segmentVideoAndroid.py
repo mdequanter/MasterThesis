@@ -143,6 +143,14 @@ async def receive_messages():
                     payload = json.loads(message)
                     msg_type = payload.get("type")
                     #print(f"inhoud bericht:{payload}")
+                    
+                    modelConfidence = payload.get("modelConfidence")
+                    if modelConfidence is not None:
+                        modelConfidence = float(int(modelConfidence)/100)
+                        DETECTION_CONFIDENCE = modelConfidence
+                        print(f"Nieuwe detectie-drempel: {DETECTION_CONFIDENCE}")      
+
+
 
                     selectedModel = payload.get("selectedModel")
                     if selectedModel is not None and selectedModel != selectedModelLast:
