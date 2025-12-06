@@ -28,6 +28,11 @@ standardModel = "unrealsim.pt"
 selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
 
+
+img = cv2.imread("saved_frames/frame_3026_20251206-152615.jpg")
+cv2.imshow("Afbeelding", img)
+
+
 # ✅ Opslag-instellingen (globaal)
 
 recordMode = False            # 👈 of we in recordmode zitten
@@ -197,7 +202,6 @@ async def receive_messages():
                     # fallback: er komt eventueel ook een JSON met base64 frame
                     if "data" in payload:
                         frame = decode_message_to_frame(message)
-                        cv2.imshow("Segmentation (unencrypted)", frame)
                         # pak frame_id als die in payload zit (optioneel)
                         frame_id = payload.get("frame_id", pending_frame_id)
                         pending_frame_id = None
