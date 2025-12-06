@@ -197,6 +197,7 @@ async def receive_messages():
                     # fallback: er komt eventueel ook een JSON met base64 frame
                     if "data" in payload:
                         frame = decode_message_to_frame(message)
+                        cv2.imshow("Segmentation (unencrypted)", frame)
                         # pak frame_id als die in payload zit (optioneel)
                         frame_id = payload.get("frame_id", pending_frame_id)
                         pending_frame_id = None
