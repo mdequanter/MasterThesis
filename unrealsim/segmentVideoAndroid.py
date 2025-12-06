@@ -119,6 +119,8 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
+
+                        print (f"latency: {payload.get('latency_ms')}, longitude: {payload.get('longitude')}, latitude: {payload.get('latitude')}")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
