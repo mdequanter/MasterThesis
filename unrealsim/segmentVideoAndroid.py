@@ -151,11 +151,12 @@ async def receive_messages():
                             MODEL = "unrealsim/models/" + standardModel
                             recordMode = True
                             print("🔴 Recordmode aan")
-                        else :
-                            recordMode = False
-                            print(f"New model selected: {selectedModel}")
-                            selectedModelLast = selectedModel
-                            MODEL = "unrealsim/models/" + selectedModelLast
+                        else:
+                            if (selectedModelLast != selectedModel):
+                                recordMode = False
+                                print(f"New model selected: {selectedModel}")
+                                selectedModelLast = selectedModel
+                                MODEL = "unrealsim/models/" + selectedModelLast
 
                         model = YOLO(MODEL, verbose=True)
 
@@ -166,6 +167,7 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
+
 
                         if (recordMode == True):
                             timestamp_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
