@@ -176,7 +176,7 @@ async def receive_messages():
                             latency_ms = payload.get('latency_ms')
                             longitude = payload.get('longitude')
                             latitude = payload.get('latitude')
-                            model_name = payload.get('selectedModel')
+                            model_name = MODEL.split("/")[-1]
                             
                             append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
 
