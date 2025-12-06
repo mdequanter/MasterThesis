@@ -105,7 +105,6 @@ async def receive_messages():
                 try:
                     payload = json.loads(message)
                     msg_type = payload.get("type")
-                    print (f"inhoud bericht: {payload}")
 
                     selectedModel = payload.get("selectedModel")
                     if selectedModel is not None and selectedModel != selectedModelLast:
@@ -138,7 +137,6 @@ async def receive_messages():
                 frame = decode_message_to_frame(message)
                 frame_id = pending_frame_id
                 pending_frame_id = None
-                print("Decoded frame from JSON message")
 
             # Geen bruikbaar frame
             if frame is None:
