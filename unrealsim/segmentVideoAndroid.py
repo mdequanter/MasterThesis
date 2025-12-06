@@ -180,7 +180,7 @@ async def receive_messages():
                             
                             append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
 
-                            print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
+                            #print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
