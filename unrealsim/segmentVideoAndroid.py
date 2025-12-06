@@ -103,7 +103,7 @@ async def receive_messages():
                 try:
                     payload = json.loads(message)
                     msg_type = payload.get("type")
-                    print (f"Ontvangen bericht type: {msg_type}: {payload.keys()}")
+                    print (f"inhoud bericht: {payload}")
 
                     selectedModel = payload.get("selectedModel")
                     if selectedModel is not None and selectedModel != selectedModelLast:
