@@ -149,11 +149,7 @@ async def receive_messages():
 
 
 
-
-
-
-                        
-                        if selectedModelLast != "recordmode":
+                        if selectedModelLast != selectedModel and selectedModel != "recordmode":
                             recordMode = False
                             print(f"New model selected: {selectedModel}")
                             selectedModelLast = selectedModel
