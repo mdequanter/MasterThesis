@@ -116,6 +116,7 @@ async def receive_messages():
     global DETECTION_CONFIDENCE, model
     global selectedModelLast, selectedModel
     global _last_saved_ts  # 👈 nodig om de throttle-timestamp te wijzigen
+    global recordMode    # 👈 om recordMode te wijzigen
 
     async with websockets.connect(SIGNALING_SERVER, max_size=None) as websocket:
         print(f"✅ Verbonden met Signaling Server: {SIGNALING_SERVER}")
