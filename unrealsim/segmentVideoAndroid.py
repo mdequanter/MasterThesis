@@ -150,7 +150,7 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
-                        timestamp_iso = datetime.utcnow().isoformat()
+                        timestamp_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         latency_ms = payload.get('latency_ms')
                         longitude = payload.get('longitude')
                         latitude = payload.get('latitude')
