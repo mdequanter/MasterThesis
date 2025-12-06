@@ -18,7 +18,7 @@ from datetime import datetime
 # ✅ Settings 
 CSV_PATH = "androidApp.csv"
 
-screenOutput = False
+screenOutput = 1
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.3
@@ -296,8 +296,10 @@ async def receive_messages():
                         print(f"⚠️ Kon frame niet opslaan naar {out_path}")
                 except Exception as e:
                     print(f"⚠️ Fout bij opslaan frame: {e}")
-            print (f"frame shows")
-            cv2.imshow("Segmentation (unencrypted)",frame)
+
+            if screenOutput:
+                # Debug window (druk 'q' om te stoppen)
+            cv2.imshow("Segmentation (unencrypted)", overlay if overlay is not None else frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
