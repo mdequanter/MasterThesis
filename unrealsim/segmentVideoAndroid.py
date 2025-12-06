@@ -11,7 +11,7 @@ from collections import deque
 from ultralytics import YOLO
 
 # ✅ Settings
-screenOutput = False
+screenOutput = True
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.3
@@ -150,7 +150,7 @@ async def receive_messages():
             inference_time_ms = (end_inference - start_inference) * 1000.0
 
             # Optioneel: teken overlay voor debugging
-            overlay = frame if screenOutput else None
+            overlay = frame if screenOutput == True else None
             height, width = frame.shape[:2]
             midpoints = []
 
@@ -162,7 +162,7 @@ async def receive_messages():
 
                     mask_resized = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
 
-                    if screenOutput:
+                    if screenOutput == True:
                         # Groen overlay
                         green_overlay = np.full_like(frame, (0, 255, 0))
                         blended = cv2.addWeighted(frame, 0.3, green_overlay, 0.7, 0)
@@ -179,9 +179,9 @@ async def receive_messages():
                         if len(indices) > 0:
                             midpoint_x = int(np.mean(indices))
                             midpoints.append((midpoint_x, y))
-                            if screenOutput:
+                            if screenOutput == True:
                                 cv2.circle(overlay, (midpoint_x, y), 5, (255, 0, 0), -1)
-                        if screenOutput:
+                        if screenOutput == True:
                             cv2.line(overlay, (0, y), (width, y), (150, 150, 150), 1)
 
             # Bepaal heading (graden) — default 90 (rechtdoor)
@@ -195,7 +195,7 @@ async def receive_messages():
                 angle_rad = np.arctan2(dy, dx)
                 direction_angle = float(np.degrees(angle_rad))
 
-                if screenOutput:
+                if screenOutput == True:
                     cv2.arrowedLine(overlay, start_point, target_point, (0, 0, 255), 5, tipLength=0.2)
 
             # ✉️ Heading + frame_id terugsturen
@@ -223,13 +223,13 @@ async def receive_messages():
                 except Exception as e:
                     print(f"⚠️ Fout bij opslaan frame: {e}")
 
-            if screenOutput:
+            if screenOutput == True:
                 # Debug window (druk 'q' om te stoppen)
                 cv2.imshow("Segmentation (unencrypted)", overlay if overlay is not None else frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
-    if screenOutput:
+    if screenOutput == True:
         cv2.destroyAllWindows()
 
 asyncio.run(receive_messages())
