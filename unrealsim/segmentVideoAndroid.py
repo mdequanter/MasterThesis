@@ -18,7 +18,7 @@ from datetime import datetime
 # ✅ Settings 
 CSV_PATH = "androidApp.csv"
 
-screenOutput = 1
+screenOutput = False
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.3
@@ -27,9 +27,6 @@ SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
 standardModel = "unrealsim.pt"
 selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
-
-
-
 
 # ✅ Opslag-instellingen (globaal)
 
@@ -226,14 +223,10 @@ async def receive_messages():
             end_inference = time.time()
             inference_time_ms = (end_inference - start_inference) * 1000.0
 
-            
-
             # Optioneel: teken overlay voor debugging
             overlay = frame if screenOutput else None
             height, width = frame.shape[:2]
             midpoints = []
-
-            cv2.imshow("frame content", overlay)
 
             for result in results:
                 if result.masks is not None:
