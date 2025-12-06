@@ -296,8 +296,8 @@ async def receive_messages():
                         print(f"⚠️ Kon frame niet opslaan naar {out_path}")
                 except Exception as e:
                     print(f"⚠️ Fout bij opslaan frame: {e}")
-
-            cv2.imshow("Segmentation (unencrypted)", overlay if overlay is not None else frame)
+            print (f"frame shows")
+            cv2.imshow("Segmentation (unencrypted)",frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
