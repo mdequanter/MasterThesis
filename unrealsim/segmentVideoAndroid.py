@@ -24,12 +24,15 @@ SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.3
 frame_times = deque(maxlen=100)
 SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
-
+standardModel = "unrealsim.pt"
 selectedModel = "unrealsim.pt"
 selectedModelLast = "unrealsim.pt"
 
 # ✅ Opslag-instellingen (globaal)
-SAVE_FRAME_EVERY_SECONDS = 60  # 👈 maximaal 1 frame per 5s
+
+recordMode = False            # 👈 of we in recordmode zitten
+
+SAVE_FRAME_EVERY_SECONDS = 30  # 👈 maximaal 1 frame per 30s
 FRAMES_DIR = "saved_frames"    # 👈 doelmap voor opgeslagen frames
 _last_saved_ts = 0.0           # 👈 interne timestamp (niet aanpassen)
 
@@ -138,9 +141,24 @@ async def receive_messages():
 
                     selectedModel = payload.get("selectedModel")
                     if selectedModel is not None and selectedModel != selectedModelLast:
-                        print(f"New model selected: {selectedModel}")
-                        selectedModelLast = selectedModel
-                        MODEL = "unrealsim/models/" + selectedModelLast
+
+                        if selectedModel == "recordmode":
+                            selectedModel = standardModel
+                            recordMode = True
+                            print("🔴 Recordmode aan")
+
+
+
+
+
+
+                        
+                        if selectedModelLast != "recordmode":
+                            recordMode = False
+                            print(f"New model selected: {selectedModel}")
+                            selectedModelLast = selectedModel
+                            MODEL = "unrealsim/models/" + selectedModelLast
+
                         model = YOLO(MODEL, verbose=True)
 
                     if msg_type == "stats":
@@ -150,15 +168,17 @@ async def receive_messages():
                     if msg_type == "frame_meta":
                         # meta komt vóór de JPEG
                         pending_frame_id = payload.get("frame_id")
-                        timestamp_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        latency_ms = payload.get('latency_ms')
-                        longitude = payload.get('longitude')
-                        latitude = payload.get('latitude')
-                        model_name = payload.get('selectedModel')
-                        
-                        append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
 
-                        print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
+                        if (recordMode == True):
+                            timestamp_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            latency_ms = payload.get('latency_ms')
+                            longitude = payload.get('longitude')
+                            latitude = payload.get('latitude')
+                            model_name = payload.get('selectedModel')
+                            
+                            append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
+
+                            print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
@@ -251,7 +271,7 @@ async def receive_messages():
 
             # 💾 Throttled frame save (max 1 per SAVE_FRAME_EVERY_SECONDS)
             now = time.time()
-            if now - _last_saved_ts >= SAVE_FRAME_EVERY_SECONDS:
+            if now - _last_saved_ts >= SAVE_FRAME_EVERY_SECONDS and recordMode==True:
                 img_to_save = overlay if (overlay is not None) else frame
                 ts_str = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
                 fid = f"_{frame_id}" if frame_id is not None else ""
