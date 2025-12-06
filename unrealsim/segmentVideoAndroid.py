@@ -61,7 +61,7 @@ TARGET_WIDTH, TARGET_HEIGHT = 640, 480
 model = YOLO(MODEL, verbose=True)
 
 
-def append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name):
+def append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name , connectionType):
     """
     Schrijft één rij naar telemetry_log.csv.
     Maakt het bestand + header automatisch aan als het nog niet bestaat.
@@ -73,7 +73,7 @@ def append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_n
         writer = csv.writer(f)
         # Header schrijven als bestand nog niet bestond
         if not file_exists:
-            writer.writerow(["timestamp_iso", "latency_ms", "longitude", "latitude", "model"])
+            writer.writerow(["timestamp_iso", "latency_ms", "longitude", "latitude", "model", "connectionType"])
 
         writer.writerow([
             timestamp_iso,
@@ -81,6 +81,7 @@ def append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_n
             longitude if longitude is not None else "",
             latitude if latitude is not None else "",
             model_name if model_name is not None else "",
+            connectionType if connectionType is not None else ""
         ])
 
 
@@ -177,10 +178,11 @@ async def receive_messages():
                             longitude = payload.get('longitude')
                             latitude = payload.get('latitude')
                             model_name = MODEL.split("/")[-1]
+                            connectionType = payload.get('connectionType')
                             
-                            append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name)
+                            append_telemetry_row(timestamp_iso, latency_ms, longitude, latitude, model_name, connectionType )
 
-                            #print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}")
+                            print (f"latency_ms: {latency_ms}, longitude: {longitude}, latitude: {latitude}, selectedModel: {model_name}, connectionType: {connectionType}")
                         # wacht op volgende recv() voor het eigenlijke frame
                         continue
 
