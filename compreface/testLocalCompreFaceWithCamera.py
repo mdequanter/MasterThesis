@@ -6,8 +6,8 @@ import io
 from typing import Dict, Any
 
 # === CONFIG ===
-API_KEY = "1ba220b5-c0b8-42f0-b1bd-252d07f242e6"  # CompreFace Recognition service key
-BASE_URL = "http://localhost:8000"
+API_KEY = "19176151-a2ae-4f4e-8dfe-28b15d8bd3c4"  # CompreFace Recognition service key
+BASE_URL = "http://192.168.0.79:8000"
 ENDPOINT = f"{BASE_URL}/api/v1/recognition/recognize"
 # Face plugins are optional: "age,gender,landmarks,mask,calculator" etc.
 FACE_PLUGINS = "landmarks"     # voeg "age,gender" toe indien gewenst
@@ -58,7 +58,7 @@ def draw_result(frame, result_json):
                 cv2.circle(frame, (int(lm[0]), int(lm[1])), 2, (255, 0, 0), -1)
 
 def main():
-    cap = cv2.VideoCapture(0)  # pas camera index aan indien nodig
+    cap = cv2.VideoCapture(1)  # pas camera index aan indien nodig
     if not cap.isOpened():
         raise RuntimeError("Kon de camera niet openen (index 0).")
 
