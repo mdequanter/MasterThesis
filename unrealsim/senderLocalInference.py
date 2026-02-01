@@ -1,3 +1,7 @@
+# Install required packages before running:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+
 import sys
 import time
 import cv2
@@ -11,6 +15,21 @@ import numpy as np
 from ultralytics import YOLO
 from PIL import Image
 import io
+
+
+import torch
+
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("cuda device count:", torch.cuda.device_count())
+if torch.cuda.is_available():
+    i = torch.cuda.current_device()
+    print("current device:", i)
+    print("device name:", torch.cuda.get_device_name(i))
+    print("allocated (GB):", torch.cuda.memory_allocated(i) / 1024**3)
+    print("reserved  (GB):", torch.cuda.memory_reserved(i) / 1024**3)
+
+
 
 # FPS switching list
 fps_choices = [20, 22, 24, 26, 28, 30, 32, 34, 36]
@@ -27,7 +46,8 @@ DISPLAY_FRAME = False
 RASPICAM = False
 REPLAY_VIDEO = False
 FRAMELIMIT = 3000
-MODEL_PATH = "unrealsim/models/unrealsim.pt"
+#MODEL_PATH = "unrealsim/models/unrealsim.pt"
+MODEL_PATH = "runs/segment/train6/weights/best.pt"
 POWERCPU = 0
 framesPerfps = 100
 SCAN_HEIGHTS = [0.2, 0.4, 0.6, 0.8]

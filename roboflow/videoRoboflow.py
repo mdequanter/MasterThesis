@@ -8,7 +8,7 @@ API_KEY = os.getenv("ROBOFLOW_API_KEY")
 API_KEY= "WgLYEMfa0WjwZWHJhwlO"
 
 # ========== Config ==========
-VIDEO_PATH = "input.mp4"              # <-- pad naar je video
+VIDEO_PATH = "roboflow/input.mp4"              # <-- pad naar je video
 API_URL = "http://localhost:9001"
 MODEL_ID = "unrealsim/1"
 SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]

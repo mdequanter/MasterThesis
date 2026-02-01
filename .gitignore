@@ -2,9 +2,14 @@ masterthesis
 ros2/analytics/logs
 ros2_yolo_output.mp4
 /venv
+/venv312
 *.mp4
 *.jpg
 *.csv
 /videos/venv
 /compreface/faces
 *.mp3
+/roboflow
+/roboflow
+/runs
+/train
