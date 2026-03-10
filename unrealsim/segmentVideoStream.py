@@ -15,7 +15,7 @@ from ultralytics import YOLO
 # ✅ Settings
 screenOutput = True
 MODEL = 'unrealsim/models/unrealsim.pt'
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
+SIGNALING_SERVER = "wss://signaling.ehb.be"
 DETECTION_CONFIDENCE = 0.85
 frame_times = deque(maxlen=100)
 SCAN_HEIGHTS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
@@ -80,7 +80,7 @@ async def receive_messages():
                 results = model(frame, conf=DETECTION_CONFIDENCE, verbose=False)
                 end_inference = time.time()
                 inference_time = (end_inference - start_inference) * 1000
-
+                start_rest = time.time()
                 overlay = frame.copy()
                 height, width = frame.shape[:2]
                 midpoints = []
