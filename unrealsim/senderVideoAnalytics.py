@@ -483,8 +483,8 @@ async def send_messages(websocket):
             display = cv2.resize(display, (1920,960))
 
 
-        if DISPLAY_FRAME:
-            cv2.imshow("Video Stream", display)
+        #if DISPLAY_FRAME:
+        #    cv2.imshow("Video Stream", display)
 
         if ANALYTICS and currentFPS>=1:
             acc["latency"].append(latency_ms)
