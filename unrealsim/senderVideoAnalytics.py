@@ -98,6 +98,7 @@ for arg in sys.argv[1:]:
             print("⚠️ Ongeldige HEIGHT waarde, standaard blijft:", HEIGHT)
     elif arg.startswith("RASPICAM="):
         RASPICAM = arg.split("=")[1].lower() == "true"
+
     elif arg.startswith("REPLAY_VIDEO="):
         REPLAY_VIDEO = arg.split("=")[1].lower() == "true"
     elif arg.startswith("PLAY_SOUND="):
@@ -482,7 +483,8 @@ async def send_messages(websocket):
             display = cv2.resize(display, (1920,960))
 
 
-        cv2.imshow("Video Stream", display)
+        if DISPLAY_FRAME:
+            cv2.imshow("Video Stream", display)
 
         if ANALYTICS and currentFPS>=1:
             acc["latency"].append(latency_ms)
