@@ -15,7 +15,7 @@ from cryptography.hazmat.backends import default_backend
 import os
 import math
 from datetime import datetime
-from playsound import playsound
+#from playsound import playsound
 #import simpleaudio as sa
 import threading
 import numpy as np
@@ -36,7 +36,7 @@ fps_choices = [20,20,20,20,20,20,20,20,20,20,20,20] # the first one is only used
 USE_VIDEO = False  # True = video, False = webcam
 VIDEO_PATH = "unrealsim/videos/nrealv2_640x480.mp4"
 MAX_FPS = fps_choices[0]
-SIGNALING_SERVER = "ws://192.168.0.74:9000"
+SIGNALING_SERVER = "ws://10.2.160.41:9000"
 ANALYTICS = False  # 🔑 Analytics aan of uit
 ANALYTICSFILE = 'benchmark'
 JPEG_QUALITY = 50
@@ -46,7 +46,7 @@ DISPLAY_FRAME = True  # True = frame tonen, False = zwart scherm
 PLAY_SOUND = False  # True = geluid afspelen bij paddetectie
 FULLSCREEN = False  
 PATH_DETECTED = False  # Global variable to track if a path is detected
-RASPICAM = True  # True = Raspicam, False = webcam
+RASPICAM = False  # True = Raspicam, False = webcam
 lastPathDetected = time.time()  # Timestamp of the last path detection
 missedFrames = 0  # Counter for missed frames
 successFullFrames = 0
@@ -96,14 +96,12 @@ for arg in sys.argv[1:]:
             HEIGHT = int(arg.split("=")[1])
         except ValueError:
             print("⚠️ Ongeldige HEIGHT waarde, standaard blijft:", HEIGHT)
-    elif arg.startswith("PLAY_SOUND="):
-        PLAY_SOUND = arg.split("=")[1]
-    elif arg.startswith("DISPLAY_FRAME="):
-        DISPLAY_FRAME = arg.split("=")[1]
     elif arg.startswith("RASPICAM="):
-        RASPICAM = arg.split("=")[1]
+        RASPICAM = arg.split("=")[1].lower() == "true"
     elif arg.startswith("REPLAY_VIDEO="):
-        REPLAY_VIDEO = arg.split("=")[1]
+        REPLAY_VIDEO = arg.split("=")[1].lower() == "true"
+    elif arg.startswith("PLAY_SOUND="):
+        PLAY_SOUND = arg.split("=")[1].lower() == "true"
     elif arg.startswith("FRAMELIMIT="):
         FRAMELIMIT = int(arg.split("=")[1])
     elif arg.startswith("POWERCPU="):
