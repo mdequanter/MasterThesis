@@ -319,7 +319,7 @@ async def send_messages(websocket):
 
 
     #cv2.namedWindow("Video Stream", cv2.WINDOW_NORMAL)
-    if FULLSCREEN:
+    #if FULLSCREEN:
         #cv2.setWindowProperty("Video Stream", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     fps_frame_count = 0
     fps_timer_start = time.time()
