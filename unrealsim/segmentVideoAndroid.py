@@ -18,7 +18,7 @@ from datetime import datetime
 # ✅ Settings 
 CSV_PATH = "androidApp.csv"
 
-screenOutput = False
+screenOutput = True
 MODEL = 'unrealsim/models/unrealsim.pt'
 SIGNALING_SERVER = "ws://192.168.0.74:9000"
 DETECTION_CONFIDENCE = 0.3
