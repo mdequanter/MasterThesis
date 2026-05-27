@@ -29,7 +29,7 @@ import socket
 #fps_choices = [-10,-10,-9,-8,-7,-6,-5,-4]  # the first one is only used to stabilize the system.
 fps_choices = [10,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40] # the first one is only used to stabilize the system.
 #fps_choices = [20,21,22,23,24,25,26]  # the first one is only used to stabilize the system.
-fps_choices = [20,20,20,20,20,20,20,20,20,20,20,20] # the first one is only used to stabilize the system.
+#fps_choices = [20,20,20,20,20,20,20,20,20,20,20,20] # the first one is only used to stabilize the system.
 
 
 # ✅ Standaardinstellingen
