@@ -1,0 +1,707 @@
+\documentclass{ieeeaccess}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+
+\usepackage{bm}
+\makeatletter
+\AtBeginDocument{\DeclareMathVersion{bold}
+\SetSymbolFont{operators}{bold}{T1}{times}{b}{n}
+\SetSymbolFont{NewLetters}{bold}{T1}{times}{b}{it}
+\SetMathAlphabet{\mathrm}{bold}{T1}{times}{b}{n}
+\SetMathAlphabet{\mathit}{bold}{T1}{times}{b}{it}
+\SetMathAlphabet{\mathbf}{bold}{T1}{times}{b}{n}
+\SetMathAlphabet{\mathtt}{bold}{OT1}{pcr}{b}{n}
+\SetSymbolFont{symbols}{bold}{OMS}{cmsy}{b}{n}
+\renewcommand\boldmath{\@nomath\boldmath\mathversion{bold}}}
+\makeatother
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+%Your document starts from here ___________________________________________________
+\begin{document}
+\history{Date of publication Jan.~27,~2026; date of current version Jan.~27,~2026.}
+\doi{To be added}
+
+\title{Benchmarking Edge vs. Cloud AI for Assistive Navigation under Real-World 5G Conditions}
+\author{\uppercase{Dequanter M.}\authorrefmark{1}, Fazelian P.\authorrefmark{1}, Braeken A.\authorrefmark{2}}
+
+\address[1]{Erasmushogeschool Brussel, Research Centre for Preventive Health Innovation, Brussels}
+\address[2]{Vrije Universiteit Brussel}
+%\tfootnote{This work is conducted as part of the Master’s Thesis “Real-Time Remote AI Segmentation over 4G/5G Networks for Assistive Navigation on Custom Trails for Visually Impaired Persons (VIPs)” by Maarten Dequanter, submitted in partial fulfillment of the requirements for the Master’s degree in Industrial Sciences.}
+
+\markboth
+{Dequanter: Benchmarking Edge vs. Cloud AI for Assistive Navigation over 5G}
+{Dequanter: Benchmarking Edge vs. Cloud AI for Assistive Navigation over 5G}
+
+
+\corresp{Corresponding author: Dequanter M. Author (e-mail: maarten.dequanter@ehb.be)}
+
+
+\begin{abstract}
+Visually impaired persons (VIPs) face a lot of challenges in safe outdoor navigation, particularly in unstructured environments where conventional aids offer limited situational awareness. This paper evaluates the feasibility of real-time vision-based assistive navigation using semantic segmentation with edge and cloud-assisted artificial intelligence over public 4G/5G networks. A reproducible benchmarking framework based on prerecorded first-person video streams is introduced to enable controlled and safe experimentation. Low-power edge devices capture, compress, and encrypt video frames, which are offloaded to a remote GPU server for real-time inference. Experimental results show that cloud-assisted inference over public 5G networks consistently achieves end-to-end latencies below 200~ms at walking speed frame rates, while on-device inference on lightweight platforms remains insufficient. In addition, queue dynamics are shown to provide an early indicator of latency increase, enabling proactive fail-safe mechanisms. Power measurements confirm the energy efficiency of cloud offloading, supporting practical mobile deployment.
+
+\end{abstract}
+
+
+\begin{keywords}
+5G networks, assistive navigation, cloud-assisted inference, edge computing, end-to-end latency, real-time systems, semantic segmentation, visually impaired persons.
+\end{keywords}
+
+\titlepgskip=-21pt
+
+\maketitle
+
+\section{Introduction}
+% =========================
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.7\linewidth]{content/difficultTrail.png}
+\caption{Blind person walking on a custom trail (source: OpenAI DALL·E, 2025)}
+\label{fig:blindperson1}
+\end{figure}
+
+Independent outdoor mobility remains a major challenge for visually impaired persons (VIPs), particularly in unstructured environments such as parks, trails, and recreational areas, as illustrated in Figure~\ref{fig:blindperson1}. Conventional mobility aids, including white canes and smart canes, primarily detect obstacles at ground or knee level and provide limited information about the global structure of the environment. As a result, they do not support reliable path following or anticipation of upcoming turns, water hazards, or low-lying obstacles~\cite{nadayanur2024voice}.
+
+Recent advances in computer vision have enabled vision-based perception systems capable of segmenting traversable paths directly from camera images~\cite{pathfinding2025}. Such semantic segmentation provides richer environmental awareness than point-wise obstacle detection and is particularly suited to unstructured outdoor settings. However, deploying these models in real time on wearable or mobile platforms remains challenging~\cite{chen2025aigd}. Lightweight edge devices, such as single-board computers and smartphones, are constrained by limited processing power, thermal budgets, and battery capacity. While fully local inference improves privacy and independence from network connectivity, it often fails to meet the inference speed and frame-rate requirements necessary for safe walking-speed navigation~\cite{black2024teleoperation}.
+
+An alternative approach is to offload perception tasks to external GPU servers via wireless networks. With the widespread availability of public 4G and 5G networks cloud-assisted inference has become a technically feasible option even for mobile and assistive applications~\cite{black2024teleoperation}. However, more recent existing studies evaluate such systems under controlled laboratory conditions or private 5G testbeds, which do not reflect the variability, jitter, and transient congestion encountered on public networks. As a result, their conclusions do not directly translate to real-world deployment scenarios for assistive navigation \cite{sah2025comprehensive}.
+
+Moreover, average latency alone is an insufficient indicator of real-time safety in closed-loop assistive systems. Temporary queue growth, frame drops, and fluctuations in frame-level reliability can lead to unstable guidance behavior even when mean latency appears acceptable. For safety-critical applications such as navigation support for VIPs, it is therefore essential to analyse end-to-end system dynamics rather than isolated performance metrics.
+
+This work addresses these gaps by presenting a comprehensive, systems-level benchmark of edge versus cloud-assisted AI segmentation for assistive navigation under real-world public network conditions. Rather than proposing a new segmentation architecture, the focus lies on \emph{engineering feasibility}: quantifying true end-to-end latency, stability, power consumption, and operational limits across edge devices and cloud-based inference when deployed over public Wi-Fi and 4G/5G networks.
+
+\subsection{Contributions}
+The main contributions of this work are:
+\begin{itemize}
+\item A reproducible, safety-aware benchmarking framework for assistive navigation that enables controlled evaluation using prerecorded first-person video streams, avoiding exposure of visually impaired users to experimental risk.
+\item  A systematic empirical comparison of edge-based and cloud-assisted segmentation inference over public Wi-Fi and 4G/5G networks, using true end-to-end latency measurements that include processing, transmission, queuing, and inference delays.
+\item  An in-depth analysis of queue dynamics and frame-level reliability, identifying queue growth as an early-warning indicator of real-time instability in assistive navigation pipelines.
+\item  A power consumption analysis demonstrating the energy-efficiency advantages of cloud-assisted inference for low-power edge devices, supporting practical wearable deployment.
+\end{itemize}
+
+\section{Related Work}
+
+Although progress has been made in both assistive navigation frameworks for VIPs and lightweight segmentation models for embedded platforms, there is very limited research that combines these domains under real network conditions. Few studies address the interplay between vision-based segmentation and real-time navigation for VIPs while explicitly benchmarking latency, variable bandwidth, jitter, and robustness to connection loss. In particular, systematic comparisons of edge versus cloud inference, including link stability and user safety through local failsafe mechanisms, remain largely absent. This gap motivates the present work, which integrates these dimensions into a unified 5G-enabled evaluation framework.
+
+\begin{table*}[t]
+\centering
+\caption{Comparison of selected related works (2019--2025) by inference type and methodology.}
+\label{tab:relatedworks}
+\begin{tabular}{|p{2.4cm}|p{2.4cm}|p{2.0cm}|p{3.2cm}|p{2.5cm}|p{3.0cm}|}
+\hline
+\textbf{Work} & \textbf{Focus} & \textbf{Inference Type} & \textbf{Methodology} & \textbf{Limitations} & \textbf{Relevance} \\
+\hline
+\cite{pathfinding2025} Ghahremanians \& Mohammadi (2025) & Real-time segmentation for VIP pathfinding & \textbf{Local High-End GPU} & Two-branch network; 120 FPS on RTX 4090 & High-end GPU dependence & Advances segmentation accuracy in contrasts to lightweight deployment focus \\
+\hline
+\cite{chen2025aigd} AI Guide Dog (2025) & Smartphone-based navigation & \textbf{Local (On-device)} & GPS + Maps + Camera/IMU; classification at 2 Hz on iPhone 13 & Limited update rate; no segmentation & Illustrates on-device privacy-preserving inference \\
+\hline
+\cite{khan2025enhancing,11156811} YOLOvX methods (2025) & Object detection for urban navigation & \textbf{Local(On device)} & YOLOvX applied to dense city scenes & Less effective in unstructured trails; no path segmentation & Strong in cities; limited relevance for parks/trails \\
+\hline
+\cite{dotlumen2025}{.lumen} & Wearable edge-assisted hardware & \textbf{Local(On device)} & interpreting user’s surroundings, spatial feedback & Custom hardware needed & Expensive to deploy:  Limited deployment \\
+\hline
+
+\cite{gao2019edge} Gao et al.\ (2019) & Edge-assisted object detection & \textbf{Network (Edge)} & Offloading frames to GPU edge server over Wi-Fi/LTE & Only object detection; no segmentation; pre-5G & Early latency study; foundation for later 5G analysis \\
+\hline
+\cite{azzino2023vis4ion} Azzino et al.\ (2023) & Wearable AI over 5G & \textbf{Network (5G Edge)} & VIS4ION platform with adaptive streaming, YOLOv7 detection, and vision-language models & Controlled testbed only; no segmentation & Shows adaptive 5G streaming; complements focus on segmentation under real networks \\
+\hline
+\cite{VRLeleop2024IEEE} l\'azovics, V.~Kov\'acs, and M.~G\'otzy & Low latency video streaming over 5G & Without inference &  VR Low latency video streaming for VR teleoperation & only streaming & 50-80 ms on direct links and 100-150 ms on public 5G \\
+\hline
+\textbf{This} & Safe assistive navigation benchmarking & \textbf{Edge–Cloud via 4G/5G} & 5G-enabled simulator; edge vs. cloud segmentation; real public networks & Simulator-based; segmentation limited to path/trail & First to couple segmentation with 5G variability and safety failsafes \\
+\hline
+\end{tabular}
+\end{table*}
+
+\subsection{Edge inference}
+
+A recent contribution is the work of Ghahremanians and Mohammadi, who proposed a specialized semantic segmentation framework tailored to real-time pathfinding for VIPs \cite{pathfinding2025}. Their two-branch architecture, combining a high-resolution “demarcation path” with a deeper “rich feature path,” achieves a strong balance between accuracy and speed, reaching 72.6\% mean Intersection over Union (mIoU) on Cityscapes while sustaining 120 frames per second (FPS) on an NVIDIA Ray Tracing Texel eXtreme (RTX) 4090 graphics processing unit (GPU). This surpasses real-time baselines such as ESPNet and Fast-SCNN, and the authors further demonstrate robustness under adverse conditions (low light, weather, occlusion).
+
+While this advances segmentation accuracy, it is tightly coupled to high-end GPUs, limiting its deployability. In contrast, the present work explores extremely lightweight segmentation models trained on Roboflow that remain feasible on lower-end hardware. By tailoring datasets to specific park environments, the models retain high quality without the prohibitive resource demands of state-of-the-art benchmarks. This complements architectural innovations by demonstrating an alternative path to practical, accessible deployment in 5G-enabled navigation.
+
+Another smartphone-based initiative is the AI Guide Dog system \cite{chen2025aigd}. Its design combines GPS and Google Maps with multimodal sensing (camera and IMU) to output short-horizon navigation cues through a classification model. Running locally on an iPhone 13 via CoreML, it sustains only 2 Hz guidance updates. The on-device approach strengthens privacy by keeping all data local but requires large datasets and a complex training pipeline. Compared to the present work, which emphasizes segmentation and real-world network variability, AI Guide Dog illustrates the trade-off between privacy-preserving inference and maintaining responsiveness on consumer hardware.
+
+Other related studies, such as \cite{khan2025enhancing,11156811}, apply YOLOvX-based object detection to urban navigation. These approaches perform well in structured city environments, where abundant objects provide cues. However, object detection alone is less effective in unstructured or sparsely annotated environments such as parks or trails, where the critical task is continuous path segmentation rather than classifying discrete objects.
+
+A noteworthy European initiative is the \cite{dotlumen2025}{.lumen} project, which develops AI-powered glasses that replicate the functions of a guide dog by interpreting the user’s surroundings and providing spatial feedback through audio and haptic cues \cite{dotlumen2025}. Supported by the European Innovation Council, the project aims to combine wearable hardware and onboard AI to enable autonomous navigation for blind users without reliance on external connectivity. Unlike traditional smart canes such as the I-CANE Mobilo, which focus on obstacle detection near ground level, the \textit{.lumen} glasses integrate real-time computer vision and scene understanding directly on the device. However, this approach requires significant local processing power and energy capacity, which constrains battery life and device weight. In contrast, the present work investigates offloading perception tasks to external GPU servers via 5G, thereby reducing the computational and thermal load on wearable devices while maintaining real-time responsiveness through optimized edge–cloud communication.
+
+\subsection{Cloud inference}
+
+One of the first systematic investigations into edge-assisted visual inference on mobile devices is the work of Gao et al. \cite{gao2019edge}. At ACM MobiCom 2019, they showed that offloading object detection to an edge server reduced latency to 60–100 ms over Wi-Fi and 150–200 ms over LTE, compared to over 500 ms for local inference on smartphones. Their study focused on object detection and did not cover segmentation, which remains more computationally demanding. The present work builds on this latency-focused work by extending it to segmentation under 5G networks and introducing additional metrics such as jitter, queue growth, frame-level reliability, power use, and the effects of compression/encryption overhead.
+
+Azzino et al.\ present VIS4ION, a wearable platform that uses 5G edge offloading to support multiple AI microservices, including YOLOv7-based object detection and vision-language models \cite{azzino2023vis4ion}. Their adaptive streaming scheme (dual-stream encoding with REBERA link estimation) halved network latency on an OAI 5G testbed. While this demonstrates the potential of adaptive video pipelines, their evaluation remains confined to private 5G networks and focuses primarily on detection and language tasks. In contrast, the present work investigates segmentation under uncontrolled public 4G/5G network conditions, where variability and packet loss are critical factors for safe navigation.
+
+Other publications such as \cite{VRLeleop2024IEEE} report latencies of 50 to 80 ms on direct links and 100 to 150 ms on public 5G, but only for raw video transmission without inference. Adding segmentation would inevitably increase delay, highlighting the need for integrated benchmarks that account for both networking and computation.
+
+An overview of the related work as discussed above can be seen in Table \ref{tab:relatedworks}.
+
+% =========================
+\section{System Architecture}
+% =========================
+
+The following schema, as outlined in Figure  \ref{fig:benchmarkschema}, has been used for the setup.  Two different paths or testing scenarios are shown.  One  route (variant a) is used to do the benchmarks via domestic 5G mobile networks and the other route (variant b) is used for the local Wi-Fi setup. The outbound route is shown with green arrows.  The return path is shown with orange arrows.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=0.95\linewidth]{content/benchmarkschemacombined.png}
+    \caption{Benchmark setup for real-time performance testing (green: outbound path, orange: return path) with numbered arrows indicating the data flow.}
+    \label{fig:benchmarkschema}
+\end{figure}
+The following subsections describe the different components of the proposed networked system and their roles in the end-to-end architecture.
+
+
+\subsection{Deployment configuration}
+\subsubsection{Domestic 4G/5G network route}
+When using the 4G/5G network, all outbound traffic (FrameID, content and extra payload) is sent to the publicly available "Home LAN network with GPU server" via the Netgear 5G router.  
+When the GPU computes the heading, the return path over the same 4G/5G connection is used to send back the heading and inference time.   
+
+
+\subsubsection{Local Wi-Fi network route}
+\label{sec:benchmarklocal}
+When using the local Wi-Fi configuration, all components (end-device, signaling server, and GPU inference server) are connected within the same Wi-Fi network. Unlike the 5G setup, no mobile router or NAT traversal is required. The local router (mainly the Domestic Cable/Fiber modem) will manage all connections. The end-device sends the FrameID and payload to the signaling server (green Outbound path) and gets back the heading and inference time (Orange return path) over the same Wi-Fi network.
+
+\subsection{Segmentation AI Inference Server (Remote/Cloud GPU)}
+
+A gaming desktop workstation was used as the inference server during the research phase. This platform provides a cost-effective and widely available solution while offering full control over the hardware and software stack. Equipped with a consumer-grade GPU, the system delivers sufficient computational performance to execute segmentation models in real time and to evaluate the complete end-to-end pipeline under realistic conditions.
+
+While newer high-end GPUs offer increased raw performance, the GPU inference time was found to represent only a small fraction of the overall end-to-end latency. Network transmission, compression, and encryption overheads dominate the latency budget in single-user assistive navigation scenarios, limiting the practical benefit of top-tier GPUs. More powerful accelerators may, however, become advantageous when scaling to multiple concurrent users or additional processing tasks.
+
+For deployment beyond the experimental phase, migration to a cloud-based or rack-mounted server infrastructure is recommended to provide improved reliability, redundancy, and scalable resource allocation.
+
+\subsubsection* {Specifications of the GPU}
+\begin{itemize}
+    \item \textbf{Hardware model:} Alienware Aurora Ryzen Edition
+    \item \textbf{Processor:} AMD Ryzen 9 3900X (12 cores)
+    \item \textbf{Memory:} 32~GiB
+    \item \textbf{Graphics:} NVIDIA GeForce RTX 2080~Ti
+    \item \textbf{Storage:} 2~TB
+    \item \textbf{Operating system:} Ubuntu 22.04.5 LTS (64-bit)
+\end{itemize}
+
+\subsection{Local Signaling Server}
+
+A lightweight signaling server is implemented as a Python service on a Synology NAS within the same LAN as the GPU inference server. It provides a persistent WebSocket channel for exchanging metadata such as frame identifiers, encryption parameters, and connection status.
+
+The server enables direct communication between edge devices and the inference server via basic port forwarding, allowing remote access over public 4G/5G networks without requiring VPNs or relay services. While effective for experimental use, this configuration offers limited security and would require additional safeguards for deployment.
+
+\subsection{Edge Devices}
+
+\subsubsection{Raspberry Pi 4 / 5}
+\label{ref:RPI}
+
+Raspberry Pi (RPI) 4 and 5 devices were selected as representative low-power edge platforms due to their affordability, compact form factor, and widespread use in mobile and assistive computing applications. Their support for Python, standard camera interfaces, and wireless connectivity enables rapid prototyping of wearable AI systems under realistic resource constraints.
+
+In this work, the RPI primarily acts as a frame capture and transmission unit. Camera images are captured, compressed, and encrypted on-device before being transmitted to the remote inference server, while returned guidance signals are rendered via visual, audio, or haptic feedback. A RP5 was used for end-to-end benchmarking over Wi-Fi and public 5G networks, while both RPI4 and RPI5 were evaluated for local on-device segmentation inference.
+
+\begin{table}[h]
+\centering
+\caption{Comparison of RPI4 and RPI5 specifications}
+\label{tab:rpi_comparison}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Specification} & \textbf{RPI4} & \textbf{RPI5} \\ \hline
+CPU cores & 4 (Cortex-A72) & 4 (Cortex-A76) \\ \hline
+Base frequency & 1.5 GHz & 2.4 GHz \\ \hline
+RAM type & LPDDR4 & LPDDR4X \\ \hline
+PCIe support & No & PCIe 2.0 x1 \\ \hline
+SoC & BCM2711 & BCM2712 \\ \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Standard Laptop}
+\label{sec:laptop}
+
+A standard laptop was used as a development and reference platform to accelerate implementation, debugging, and baseline benchmarking. Compared to embedded edge devices, the laptop offers substantially higher computational resources, enabling rapid iteration while maintaining compatibility with the deployed pipeline.
+
+The laptop was employed for code development, simulation-based experiments, and baseline performance measurements of the video streaming and inference pipeline under varying network conditions. This dual-platform setup enables a clear comparison between unconstrained and resource-limited execution environments.
+
+\section{Experimental setup and methodology}
+This study follows a reproducible pipeline that couples a controllable \emph{digital twin} of an imaginary park, vision-based perception, and a communication/inference stack that mimics real-world deployment while remaining safe and repeatable.
+
+\subsection{Segmentation model for path detection}
+From the First-Person View (FPV) footage, representative frames were annotated to label the traversable path versus non-path classes. A lightweight, COCO-style instance segmentation model (Roboflow 3.0 “Instance Segmentation (Fast)”) \cite{roboflow_models} was trained and exported for real-time inference. At runtime, the model produces a per-frame path mask, a row-wise midpoint extraction (see Figure \ref{fig:midpoint}) converts this mask into a centerline and a target heading angle, which drives the haptic/visual arrow interface.
+
+
+\begin{figure} [h!] \centering \includegraphics[width=1\linewidth]{content/segmentationOnGPU.png} \caption{Row-wise midpoint extraction} \label{fig:midpoint} \end{figure}
+
+\subsubsection{Training}
+A limited dataset of 231 video frames was extracted from a prerecorded tour in the Unreal Engine “twin city” park environment and split into train/validation/test = 162(70\%)/47(20\%)/22(10\%). Images were resized to 640\,$\times$\,640 (average size \(\approx\)0.41\,MP). Annotation was performed in Roboflow (see Figure \ref{fig:trainingannotation}).
+
+\begin{figure} [h!] \centering \includegraphics[width=1\linewidth]{content/trainingAnnotation.png} \caption{Example of some annotated images} \label{fig:trainingannotation} \end{figure}
+
+The Roboflow 3.0 Instance Segmentation (Fast) model, initialized from the \texttt{COCOn-seg} checkpoint, was fine-tuned on our custom dataset (\texttt{unrealsim/1}) containing COCO-style instance annotations. During preprocessing, images were automatically oriented and resized to 640×640 pixels, without applying any data augmentation. The model was trained for 320 epochs, and the results reported in this work correspond to the best-validation checkpoint obtained at epoch 119.
+
+Despite its compact size of 3.26 million parameters, the segmentation model demonstrates high computational efficiency. On an NVIDIA GeForce RTX 2080 Ti, inference requires on average 5.45~ms per frame at a resolution of $640 \times 640$, yielding a throughput of approximately 184~FPS. This performance provides a substantial margin over real-time requirements and enables low-latency path extraction for assistive navigation.  Details are provided below in table \ref{tab:seg_benchmark_2080ti}:
+
+
+\begin{table}[h]
+\centering
+\caption{Inference performance of the COCO fast segmentation model on an NVIDIA GeForce RTX 2080 Ti}
+\label{tab:seg_benchmark_2080ti}
+\begin{tabular}{ll}
+\hline
+\textbf{Category} & \textbf{Value} \\
+\hline
+\multicolumn{2}{l}{\textit{Software \& Hardware}} \\
+PyTorch version & 2.6.0+cu124 \\
+CUDA version & 12.4 \\
+GPU & NVIDIA GeForce RTX 2080 Ti \\
+Checkpoint size & 6.51 MB \\
+\hline
+\multicolumn{2}{l}{\textit{Model statistics}} \\
+Total parameters & 3,263,811 \\
+Parameter memory (FP32) & 12.45 MB \\
+\hline
+\multicolumn{2}{l}{\textit{Computation cost}} \\
+Input resolution & $1 \times 3 \times 640 \times 640$ \\
+MACs & 3.03 GMac \\
+Approx. FLOPs & 6.05 GFLOPs \\
+\hline
+\multicolumn{2}{l}{\textit{Inference benchmark (batch size = 1)}} \\
+FP32 latency & 5.45 ms \\
+FP32 throughput & 183.55 FPS \\
+FP16 latency & 6.17 ms \\
+FP16 throughput & 162.05 FPS \\
+\hline
+\end{tabular}
+\end{table}
+The proposed fast segmentation model exhibits a parameter count (3.26M) comparable to recent lightweight real-time semantic segmentation architectures reported in the literature. Compared to the two-branch real-time segmentation model by Ghahremanians and Mohammadi \cite{pathfinding2025}, which operates with 3.4M parameters and 13 GFLOPs, our model requires approximately half the computational cost while achieving higher inference throughput at lower input resolution.
+
+On an NVIDIA RTX 2080 Ti, the model achieves 183 FPS at 640×640 resolution using FP32 precision, which is consistent with the performance trends reported for similar architectures evaluated on more powerful GPUs at higher resolutions.
+
+\subsubsection{Validation performance}
+The segmentation model is trained to predict the walkable path in a park environment. On the validation set, it achieves a mask precision of 0.998 and a recall of 1.00, indicating that almost all walkable regions are correctly detected while virtually no non-walkable areas are incorrectly classified as path. The mean average precision at an Intersection over Union (IoU) threshold of 0.5 (mAP50) for the walkable-path masks reaches 0.995, while the more stringent mAP50–95 metric still yields 0.877. This shows that the model not only detects the presence of the path but also delineates its boundaries with high spatial accuracy, which is crucial for deriving a reliable center line for navigation. These results reflect in-domain validation performance, as both training and validation images originate from the same virtual park walk in the Unreal Engine environment. Consequently, within this validation domain, the risk of guiding a user towards non-walkable regions (false positives) is very low, and the available path width is largely preserved (few false negatives). However, these results may overestimate robustness to unseen park layouts, textures, or environmental conditions, motivating further out-of-domain evaluation.
+In addition to the quantitative simulation-based validation, the model was qualitatively evaluated in an unseen real-world park environment. In these exploratory tests, the walkable path was consistently detected and a stable centerline suitable for navigation was produced. As no ground-truth annotations were available, these results are reported qualitatively and excluded from the quantitative metrics.
+
+
+\subsection{Reproducible streaming playback}
+\label{sec:streamingPlayback}
+To decouple perception from data collection and to enable fair comparisons across devices and networks, experiments use a \emph{prerecorded video} of 9 minutes and 43 seconds MP4 of a fixed park traversal. This recording resulted in 17490 frames. The same frame sequence is replayed in every run during benchmarks, ensuring that variations in results stem from compute and network conditions rather than scene changes.
+\subsubsection{Streaming and inference pipeline.}
+On the edge-device, each replayed frame is timestamped and assigned a \texttt{FrameID}, compressed and encrypted, and sent over a WebSocket connection via a 4G/5G link to a publicly reachable signaling server. The signaling server relays frames to the GPU inference server on the same LAN. The server runs the segmentation model, computes the heading for the corresponding \texttt{FrameID}, and returns a compact message containing FrameID and heading via the same route. The edge-device (ex. RPI) matches responses by \texttt{FrameID}, updates the arrow/servo output, and logs performance metrics to a Comma-separated file (csv) file.
+
+\subsection{Measurement design}
+
+Accurate and consistent measurement of network and system performance is essential to evaluate the feasibility of real-time assistive navigation. In this work, the true end-to-end latency per frame is computed on the edge-device using the internal clock in combination with the unique \texttt{FrameID}. This latency reflects the total time between capturing a frame and receiving the corresponding inference result (processing + transmission/propagation + queuing + inference). In parallel, the system records FPS, queue size, and error conditions. Because the same prerecorded video is replayed in every benchmark, repeated runs under different configurations (e.g., local Wi-Fi vs.\ 5G, edge vs.\ cloud inference) at different bitrate/FPS settings) yield statistically comparable results. All metrics are stored in csv format for later analysis. The complete list of logged fields is provided in Table~\ref{tab:metrics}.
+
+\subsubsection{Evaluation Metrics}
+
+Most 4G/5G studies evaluate network performance using standard quality-of-service (QoS) indicators such as latency, jitter, throughput, and packet loss, which capture the fundamental characteristics of wireless links. These metrics are widely adopted in telecommunications and robotics research and form the baseline for comparison in this work (Table~\ref{tab:metrics}).
+
+Beyond these standard metrics, this work introduces additional system-level measurements to characterize the interaction between networking, computation, and energy consumption in an edge/cloud inference pipeline. These include processing overheads (compression and encryption time), inference time, queue size, frame-level reliability, and power consumption. Together, these metrics provide a more complete view of true end-to-end system behaviour under real-time operating conditions.
+
+
+\begin{table}[h!]
+\centering
+\caption{Overview of measured fields, grouped by category, with descriptions and units}
+\label{tab:metrics}
+\begin{tabular}{|l|p{2.5cm}|l|}
+\hline
+\multicolumn{3}{|l|}{\textbf{Time and Identification}} \\ \hline
+datetime & Timestamp when the measurement was recorded. & ISO 8601 \\ \hline
+last\_frame\_id & Identifier of the last processed frame. & ID \\ \hline
+gps\_coordinates & Geographic location of the device. & latitude, longitude \\ \hline
+
+\multicolumn{3}{|l|}{\textbf{Network and Connection}} \\ \hline
+signaling\_server & IP of the signaling server & LAN or WAN IP \\ \hline
+Connection & Type of network connection used. & category(Wi-Fi, 4G, 5G) \\ \hline
+bitrate & Data transmission rate. & Mbps \\ \hline
+latency\_ms & Per-frame end-to-end latency & ms \\ \hline
+
+\multicolumn{3}{|l|}{\textbf{Video Quality and Compression}} \\ \hline
+resolution & Video resolution in pixels (width × height). & pixels \\ \hline
+max\_fps & Maximum negotiated frame rate. & fps \\ \hline
+jpeg\_quality & Compression quality setting for JPEG encoding. & 10--100 \\ \hline
+current\_fps & Effective frame rate achieved. & fps \\ \hline
+current\_size\_kb & Compressed frame size. & kB \\ \hline
+compression\_ms * & Time to compress a single frame. & ms \\ \hline
+encryption\_ms * & Time to encrypt a single frame. & ms \\ \hline
+
+\multicolumn{3}{|l|}{\textbf{System Performance and AI}} \\ \hline
+poweruse\_W * & Power consumption. & W \\ \hline
+inference\_ms * & Time required for AI inference on a single frame. & ms \\ \hline
+queuesize * & Number of frames waiting in the queue to be inferred. & count \\ \hline
+missed\_frames * & Total frames dropped before processing or transmission. & count \\ \hline
+successful\_frames * & Total frames successfully transmitted and processed. & count \\ \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Assuring Best Performance}
+As 5G Standalone (SA) deployments in Belgium are currently limited to testbeds, this study evaluates performance exclusively under public 5G Non-Standalone (NSA) coverage. To ensure reproducibility and stable network conditions, all benchmarks were conducted from a fixed location with verified 5G NR NSA availability. The recorded GPS coordinates enable later comparison with field-based latency stability measurements.
+
+\subsection{Benchmark setups for real-time inference via an external GPU}
+\label{sec:benchmarksetups}
+Benchmarks were conducted using either a standard laptop and a RPI5 as end-device. The benchmark process pipeline can be seen on Figure \ref{fig:benchmarkpipeline}.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/benchmarkpipeline.png}
+    \caption{Benchmark pipeline process from capturing frame to visualise and log metric.}
+    \label{fig:benchmarkpipeline}
+\end{figure}
+
+During playback of the pre-recorded FPV sequence, all per-frame metrics listed in Table~\ref{tab:metrics} were logged to a csv-file.
+
+To evaluate real-time performance, we increased the requested frame rate (\texttt{max\_fps}) in steps of 2~FPS every 100 frames: 10, 12, \dots, 40~FPS (16 settings). From a total of 10000 frames, this yields approximately 625 frames per FPS setting.
+
+Latency experiments used JPEG quality 90\% at 640\(\times\)480. The median encoded frame size was \(\approx 109\,\mathrm{kB}\) (i.e., \(\approx 8.7\)–\(34.9\,\mathrm{Mbit/s}\) over 10–40~FPS). For each FPS setting we report the sample mean and a 95\% confidence interval (CI) for latency computed as on per-frame values:
+\[
+\bar{x} \pm t_{0.975,\,n-1}\,\frac{s}{\sqrt{n}},
+\]
+where \(n\) is the number of frames in that setting, \(\bar{x}\) is the sample mean, and \(s\) the sample standard deviation. Queue size and bitrate are reported as sample means per setting.
+
+
+\subsubsection*{Sending process with FrameID}
+\begin{enumerate}
+    \item During each experiment, edge devices replay prerecorded video frames, which are compressed and encrypted, then a unique FrameID and corresponding send time is stored in a lookup table.
+    \item The payload with frame content and FrameID is transmitted over 5G to the WebSocket-based signalling server on the Home LAN network (see Figure \ref{fig:benchmarkschema}).
+    \item The GPU, placed within the same Home LAN is also connected to the signaling server and receives the new frame content and corresponding FrameID.
+    \item The GPU performs the inference on that frame. This returns a mask with the annotated path. From that mask the heading is calculated via a row-wise midpoint extraction algorithm. 
+    \item The resulting heading and inference measured time is then sent back via the Return Path to the Edge-device. 
+    \item The end-device can now update the visualisation, compute the true end-to-end latency by comparing the receiving time with the corresponding sending time in the lookup table of that frameID and record the statistics (Table \ref{tab:metrics}) in a csv-file.  
+    
+\end{enumerate}
+
+\section{Benchmark measurements}
+\subsection{Real-time local inference on edge-devices}
+\label{sec:inferencingedge}
+Measuring end-to-end latency when running the inference task on the device itself is different, it is calculated based on the inference time and the processing time.
+
+We should also make sure that the general load of other tasks running on the end-device is as low as possible by closing all unnecessary tasks and processes running on that device.
+
+The results of this experiment on different end devices are shown in Figure~\ref{fig:localinference}. To improve readability, a logarithmic (log) scale was used in the graph.
+
+
+\begin{figure} [h!]
+\centering
+\includegraphics[width=1\linewidth]{content/LocalInference.png}
+\caption{Local inference on different end-devices (log scale)}
+\label{fig:localinference}
+\end{figure}
+
+
+\subsubsection{Standard laptop}
+
+As shown in Figure~\ref{fig:localinference}, local inference was first benchmarked on a standard laptop equipped with a CPU but without a dedicated GPU.
+The average end-to-end latency was 123.31 ms, with an inference time of approximately 115.9 ms per frame.
+This corresponds to an average frame rate of 8.66 FPS, meaning that the laptop can process roughly nine images per second without relying on any external network.
+These values are sufficient for near real-time performance in some applications, since the total latency remains below 200 ms.%, which is often considered the upper limit for human-perceived real-time feedback.
+
+In terms of power consumption, the laptop required about 11.0 W when idle and 17.67 W during inference, representing an increase of 6.67 W due to CPU utilization.
+While these results confirm that local inference on a CPU-based laptop is feasible, the setup is less energy-efficient and less portable compared to lightweight Edge devices such as the RPI series.
+
+\subsubsection{RPI4 and RPI5}
+
+The same local inference benchmark was performed on both a RPI4 and a RPI5 to assess the balance between performance and energy efficiency on embedded systems.
+On the RPI4, the measured end-to-end latency was approximately 1.7 s per frame, resulting in an average frame rate of only 0.59 FPS.
+This clearly shows that the RPI4 is unsuitable for running real-time inference tasks of even a small segmentation model, as visual feedback would lag several seconds behind user movement.
+
+The RPI5, featuring a faster processor and upgraded architecture, performed significantly better with an end-to-end latency of 512.9 ms and a throughput of 1.97 FPS.
+Although this represents a major improvement over the RPI4, it still falls short of the 10–15 FPS typically required for smooth and continuous visual guidance.
+The main advantage of the RPI devices lies in their low power consumption. The RPI5 consumed only 4.5 W during inference and less than 5 W in total, compared to 17.67 W for the laptop.
+
+These results highlight the trade-off between processing performance and energy efficiency in local inference.
+While the laptop achieves lower latency, its higher power usage and limited portability make it less suitable for mobile assistive navigation.
+Conversely, the RPI devices are compact and energy-efficient but currently lack the computational capacity for real-time operation, motivating the exploration of edge and cloud-assisted inference in later sections.
+
+
+\subsubsection{Real-time standard metrics benchmarks}
+\label{sec:realtimeResponsiveness}
+
+\subsubsection*{RPI5 connected via local Wi-Fi network}
+\label{sec:RPILocalBenchmark}
+The RPI5 benchmark over local Wi-Fi is shown in Figure~\ref{fig:RPI5Local}. Results demonstrate stable latency and queue (max. 2) up to 20~FPS. This means almost no frames are waiting to be inferred. Starting from 30 FPS the latency increases faster. But still the 200 ms threshold (good for walking speed \cite{gao2019edge}) is only reached at approx. 36 FPS. Beyond this point, latency increases due to queue build-up: the GPU inference server cannot keep pace with the requested frame rate, as frames are waiting in the queue buffer. %With JPEG quality fixed at 90\%, the RPI5 sustains real-time responsiveness for walking speeds (latency $<$200\,ms).
+
+As expected, bitrate grows nearly linearly with the requested FPS. With an average frame size of $\approx$109~kB, the theoretical bitrate is 109 kB $\times$ FPS (e.g., 21.8~Mbit/s at 20~FPS). The measured bitrate is consistently lower due to processing delays.
+
+When frames accumulate, the additional delay scales approximately with \textit{queue size} $\times$ \textit{inference time}. For example, with an inference time of 12~ms and a queue of 10 frames, latency increases by about 120~ms.
+
+To keep latency within acceptable bounds, the next frame should not be sent before the previous one is processed. In our testbench, this was enforced by inserting a controlled delay after each frame to regulate the effective FPS.
+
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/benchmarkRPI5Wifi90.png}
+    \caption{Benchmark RPI5 Wi-Fi (JPEG quality 90\%) real-time external video Inferencing (mean 95\% CI)}
+    \label{fig:RPI5Local}
+\end{figure}
+
+\subsubsection*{RPI5 connected via domestic 5G mobile network}
+\label{sec:RPI5GBenchmark}
+When the end-device is not sent over the same Home LAN network as the signaling server, all frames must be sent over 5G via the Netgear M6 5G router.
+The RPI5 showed higher latency compared to the local Wi-Fi setup, with a gradual increase already visible from 18-20 FPS (Figure \ref{fig:RPI55G}). On 5G, latency crossed the 200 ms threshold consistently at 26 FPS and rose steeply beyond 28 FPS, reaching over 400 ms at 32 FPS and approaching 500 ms at 40 FPS, with queue peaks approx. 10 frames at 34–38 FPS. This behavior is expected due to the additional uplink and downlink propagation delays, NAT forwarding delays and the added latency introduced by the public 5G network.  
+
+Queue size followed a similar trend as it is relatively stable up to 20 FPS, but grows steadily afterwards and peaks around 10 frames between 34-38 FPS. Unlike the Wi-Fi case, where queues remained small until higher frame rates, the 5G connection showed more pronounced sensitivity to transient fluctuations, with occasional jitter and frame drops.  
+
+Overall, while short-term averages remained acceptable for walking speeds at lower frame rates ($\leq 22$ FPS), pushing the system above this envelope led to clear instability. To ensure safe real-time assistive navigation, the RPI5 on domestic 5G should therefore be operated conservatively below 20 FPS.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/benchmarkRPI55G90_Presentation.png}
+    \caption{Benchmark RPI5 on 5G (JPEG quality 90\%) real-time external video Inferencing (mean 95\% CI)}
+    \label{fig:RPI55G}
+\end{figure}
+
+\subsubsection*{Laptop connected via local Wi-Fi network}
+\label{sec:LaptopLocalBenchmark}
+The benchmarks reveal that the RPI5 actually maintained more stable latency scaling over Wi-Fi than the laptop. On the RPI5, latency stayed below approximately 120\,ms up to about 28\,FPS, with only a gradual rise before sharp queue growth appeared beyond 34\,FPS. By contrast, the laptop, despite its stronger CPU, pushed more frames into the pipeline, leading to earlier queue buildup and a noticeable latency increase already from 22--24\,FPS. At 30--32\,FPS, the laptop exceeded 120\,ms and started rising faster, while the RPI5 only began rising more sharply from 36\,FPS. 
+
+This shows that the RPI's lower compression throughput, while seemingly a disadvantage, actually acts as a form of natural flow control that keeps the GPU server’s queues manageable. In other words, lower compression throughput on RPI5 limits ingress rate and prevents queue blow-ups, yielding more predictable latency than the laptop at the same requested FPS. The laptop can achieve higher bitrates, but this comes at the cost of pushing the server into overload earlier, undermining real-time stability. The trade-off is clear: the RPI5 offers more predictable responsiveness within the safe range of 28\,FPS, while the laptop only performs better in raw throughput terms but suffers from earlier latency degradation.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/benchmarkLaptopWifi90.png}
+    \caption{Benchmark Laptop Wi-Fi (JPEG quality 90\%) real-time external video Inferencing (mean 95\% CI)}
+    \label{fig:laptoplocal}
+\end{figure}
+
+\subsubsection*{Laptop connected via domestic 5G mobile network}
+\label{sec:Laptop5GBenchmark}
+When connected via the domestic 5G network (Figure \ref{fig:laptop5G}), the laptop exhibited the same overall behavior as the RPI5, though performance degraded slightly earlier. Latency remained between 120–150 ms at 10–20 FPS but exceeded 200 ms from 24 FPS onward and surpassed 500 ms above 30 FPS, reaching approximately 700 ms at peak load.
+
+Queue growth followed a similar pattern, becoming significant beyond 22 FPS and indicating that the inference server could not process incoming frames quickly enough at higher transmission rates. Despite throughput increasing almost linearly with FPS (up to 35 Mbps at 40 FPS), queuing delays dominated the end-to-end latency.
+
+Overall, these results highlight that while domestic 5G provided sufficient capacity at low to moderate frame rates, stability deteriorated quickly once the system was stressed beyond 24-26 FPS. For safe assistive navigation at walking speed, the operational envelope should therefore be conservatively limited to 20-22 FPS on the laptop when using public 5G, ensuring latency remains below 200 ms and queue sizes do not compromise responsiveness.
+
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/benchmarkLaptop5G90.png}
+    \caption{Benchmark Laptop on 5G (JPEG quality 90\%) real-time external video Inferencing (mean 95\% CI) }
+    \label{fig:laptop5G}
+\end{figure}
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/comparewifi5G.png}
+    \caption{Benchmark compare  Wi-Fi with 5G for real-time external video Inferencing (mean 95\% CI)}
+    \label{fig:wifi5Gcompare}
+\end{figure}
+
+
+\subsubsection{Conclusions for standard metrics}
+As you can see on Figure \ref{fig:wifi5Gcompare}, across all setups, the results confirm that real-time external inference is feasible on both Wi-Fi and domestic 5G, provided that the requested frame rate remains within a safe operational range. Local Wi-Fi offers the most stable behaviour, with low latency and negligible queue growth up to roughly 30 FPS. Domestic 5G introduces higher variability and an additional 30-70 ms delay, but still maintains end-to-end latency below the 200 ms walking threshold at moderate frame rates.
+
+%\paragraph*{Queue size as indicator of overload}
+A consistent finding is that queue size is the earliest indicator of overload. Once frames accumulate, latency rises sharply regardless of throughput. The RPI5 benefits from its lower compression throughput, which naturally limits ingress rate and delays queue formation compared to the laptop.
+
+Overall, stable real-time performance is achieved between 20-28 FPS depending on network conditions. These results validate that cloud-assisted segmentation over public 5G can meet the responsiveness requirements for safe assistive navigation at walking speed.
+\subsubsection{Additional metrics}
+\subsubsection*{Processing overhead analysis}
+
+Processing overhead is shown in Figure~\ref{fig:processingOverhead} for all setups: a laptop on local Wi-Fi, a laptop on domestic 5G, a RPI5 on local Wi-Fi, and a RPI5 on domestic 5G.
+The graph displays compression time, encryption (AES-256 Cipher Block Chaining mode) time, and the total processing overhead per frame.
+In all cases, the overhead share (percentage of total latency) remains below 1.9\%, indicating that it has only a minor influence on the overall process.
+
+The results demonstrate that compression dominates the total overhead,
+whereas encryption contributes only a negligible delay ($<$0.5 ms). On both
+laptop and RPI5, the total overhead remains between 2-4 ms. Laptops
+consistently require around 3.5-3.8 ms, while the RPI5 achieves slightly
+lower values of 2.3-3.5 ms. In relative terms, the overhead represents about
+4 \% of the total latency on laptops, whereas on the RPI5 it is closer to
+1 \%, since transmission and network delays dominate in that case.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/processingOverheadExternal.png}
+    \caption{Processing overhead for real-time external video Inferencing Wi-Fi vs. 5G}
+    \label{fig:processingOverhead}
+\end{figure}
+
+\subsubsection*{Inference time and Frame level reliability}
+
+Figure~\ref{fig:InferenceTimeFrame} shows the relation between JPEG compression quality (10-100\%) and both the average frame size (kB) and the frame-level success rate (\%). Two clear trends are visible.  
+\begin{enumerate}
+    \item First, the average frame size increases almost linearly from approximately 15~kB at 10\% JPEG quality to 110~kB at 90\%. At 100\% JPEG quality, a strong non-linear increase is observed, with an average size above 270~kB. This directly impacts the required transmission bandwidth and consequently the end-to-end latency.
+    \item Second, the frame-level reliability rises sharply at low qualities: from a reduced success rate at 10\% to nearly 100\% at 20\%. Beyond this threshold, the success ratio remains stable and close to 100\% for all higher qualities. This indicates that once a minimal visual quality is reached, further increasing JPEG quality does not significantly improve robustness.  
+\end{enumerate}
+
+
+From a system design perspective, this trade-off highlights that using medium JPEG quality settings (50-80\%) provides the optimal balance. In this range, the success rate is saturated at nearly 100\%, while the average frame size and bandwidth demand remain within acceptable limits. By contrast, very high quality (100\%) imposes a large overhead without measurable gains in reliability. 
+It is therefore recommended to use a JPEG quality between 50–80\% JPEG as the operating range.
+
+\begin{figure} [h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/InferenceTimeAndFrameLevelReliability.png}
+    \caption{Avg. size(kB) versus Frame level reliability for real-time external video inferencing}
+    \label{fig:InferenceTimeFrame}
+\end{figure}
+
+
+\subsubsection*{Queue size}
+\label{sec:queuesize}
+
+As discussed in Section~\ref{sec:realtimeResponsiveness}, the queue size represents the number of frames waiting to be processed on the GPU inference server. It is a critical indicator of whether the requested frame rate exceeds the system’s real-time processing capacity. When the queue grows, latency increases proportionally, since each newly captured frame must wait for earlier ones to complete inference.  
+
+The results in the figures confirm this relationship. For the RPI5 over 5G (Figure \ref{fig:RPI55G}), the queue size begins to rise from 24 FPS onwards, reaching values around 10 frames at 36-38 FPS. This correlates directly with the steep latency increase above 300 ms. In contrast, the {RPI5 over Wi-Fi} (Figure \ref{fig:RPI5Local}) shows much lower queue growth up to 30~FPS, but then exhibits a sharp increase beyond 34 FPS, where latency also spikes above 300 ms.  
+
+For the {laptop benchmarks}, a different pattern is observed. Over 5G (Figure \ref{fig:laptop5G}), queue growth already starts at 20-22 FPS, and the queue stabilizes at high values (up to 20 frames) when the maximum FPS is pushed beyond 30. This leads to extreme latency values above 700 ms, showing that network-induced delays amplify the queuing effect. Over Wi-Fi (Figure \ref{fig:laptoplocal}), queue growth is delayed until 30 FPS, but when it occurs it rises steeply, again leading to significant latency increases.  
+
+Overall, these results highlight that the queue size is a strong early-warning indicator of system overload. Once frames accumulate in the queue, true real-time responsiveness is lost, even if average throughput (bitrate) appears sufficient. For safe assistive navigation, the operational envelope must therefore be chosen conservatively below the onset of queue growth.
+
+
+
+\subsubsection*{Power consumption measurement}
+
+Power consumption on the laptop was measured using a Tuya 20A Zigbee smart power meter, integrated into the local Zigbee2MQTT network. 
+The device provided updates at a frequency of approximately once per second, which was sufficient to obtain a reliable overview of average consumption during the benchmark runs. 
+Although this setup does not capture very short-term spikes, it allows meaningful comparison of typical power usage across scenarios and provides insight into the overall energy demand of the system.
+
+RPI5 power is currently an estimate based on CPU utilization scaling and should be interpreted qualitatively. Future work will include inline Direct Current(DC) measurements (INA219) to provide calibrated values and CIs.
+
+This approach provides an approximate but practical measure of energy consumption without requiring external instrumentation, enabling lightweight evaluation of power trends during inference and streaming tasks.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\textwidth]{content/poweruse.png}
+    \caption{Estimated power draw (W) by device/network, mean ± 95\% t-CI (proxy-based for RPI)}
+    \label{fig:poweruse}
+\end{figure}
+
+Figure~\ref{fig:poweruse} compares the mean power consumption (poweruse\_W) across different benchmark setups, expressed as mean values with 95\% CIs. The results show a clear difference between laptops and RPI5 devices.  
+
+The {laptop benchmarks} demonstrate significantly higher consumption, with an average of 15.6~W on the domestic Wi-Fi connection and 10.7 W when connected via 5G. The {RPI5}, in contrast, consumes only 3.5~W on the domestic network and 2.5 W over 5G. This makes the RPI4/5 far more suitable for battery-powered, mobile use cases, where long runtime is essential.  
+
+Interestingly, the laptop consumes less energy on 5G than on the domestic Wi-Fi connection. This can be explained by the fact that in both cases the laptop connects through its Wi-Fi interface, while the actual 5G modem resides in the router. On the domestic Wi-Fi, higher throughput and lower jitter allow more frames to be transmitted and processed, keeping the CPU and GPU under a higher sustained load. In contrast, the 5G connection introduces lower throughput and higher variability, effectively throttling the data pipeline. This reduces the number of frames processed per unit time, and thereby lowers the average system power consumption of the laptop.  
+
+The {key insight} is that network conditions not only affect latency and frame reliability, but also indirectly influence power usage on the end-device. In practice, this means that lower link quality may appear to save energy, but at the cost of reduced effective frame rate and degraded real-time responsiveness.  
+
+
+
+\subsubsection{Conclusions on additional metrics measurements}
+The additional metrics confirm that processing overhead, inference time, queue growth, and power usage each play a distinct role in overall system behaviour. Processing overhead remains negligible across all setups, with compression dominating and encryption contributing only sub-millisecond delay. Frame-level reliability stabilises once a minimal JPEG quality is reached, indicating that medium compression levels (50-80\%) provide the best trade-off between bandwidth and robustness. Queue size again emerges as a key indicator of overload, once it begins to rise, latency increases sharply and real-time responsiveness degrades. Power measurements highlight the suitability of the RPI5 for mobile use, while also showing that network conditions indirectly affect energy consumption. Overall, these complementary metrics reinforce the importance of operating within conservative FPS and bitrate limits to maintain stable real-time performance.
+
+\subsection{Stability of latency and Link Quality over 4/5G Network Setup}
+\label{sec:stability}
+
+\subsubsection{Objectives}
+It is essential to analyze the quality of the 4/5G connection to ensure that the system maintains acceptable latency, frame rate, and link stability to support real-time path planning during outdoor activity, where radio conditions are time-varying.  
+
+This experiment aims to characterize the variability of the public 4/5G connection over a representative park environment (Laerbeekbos, Brussels) and to determine whether these conditions permit reliable cloud-assisted segmentation inference at walking speeds. The test was conducted on September 23, 2025, at 13:00 under partly cloudy conditions, using the Orange 5G NR-NSA network via a Netgear Nighthawk M6 router. In total 25 measurement points were recorded at different points of the walking trail.  
+
+This park was selected because of its good 5G coverage, mixed open and wooded areas, and its realistic representation of semi-urban park environments where assistive navigation systems for VIPs could be deployed.
+
+\subsubsection{Measurements (Round-Trip Time (RTT), download and upload)}
+At each GPS coordinate, an Ookla Speedtest measurement was performed via a python script, connecting to the Ookla API to obtain the download and upload throughput, RTT (ms) and jitter (ms).
+In total, 25 samples were taken at approximately 1-minute intervals while walking along the main path, covering both open and shadowed areas.
+
+Figure~\ref{fig:laerbeekbosOakla} visualizes the measurement results on an OpenStreetMap background.  
+Marker size corresponds to the measured download speed (in Mbps), while color represents RTT (ms). Dark purple indicates low RTT (below 40\ ms), whereas yellow to orange shades indicate increased delay.  
+The figure demonstrates that latency remained consistently low across most of the park.  
+
+The map was generated using Python with the Folium and Pandas libraries, which read GPS-tagged Ookla measurement data and dynamically adjusted marker size and color scales. This visualization method allows an intuitive  spatial understanding of network behavior along the test route.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\linewidth]{content/oaklaLaerbeekBos.png}
+    \caption{Ookla field test results in Laerbeekbos: marker size = download rate, color = Round-Trip Time (RTT)}
+    \label{fig:laerbeekbosOakla}
+\end{figure}
+
+A summary of the statistical results is presented in Table~\ref{tab:ookla_summary}.  
+Values are shown as minimum, maximum, and mean across all samples.
+
+\begin{table}[h!]
+\centering
+\caption{Summary of Ookla results (min, max, mean)}
+\label{tab:ookla_summary}
+\begin{tabular}{lrrrr}
+{} & Download(Mbps) & Upload(Mbps) & RTT(ms) &  Jitter(ms) \\
+min  &   4.49 &   1.35 &  19.01 &  0.08 \\
+max  &  28.03 &  13.35 &  41.45 & 15.48 \\
+mean &  19.63 &   5.08 &  24.41 &  4.02 \\
+\end{tabular}
+\end{table}
+
+Across all samples, the mean RTT was approximately 24.4 ms, with 95\% of the values below 38 ms.  
+Average download and upload throughput were 19.6 Mbps and 5.1 Mbps, respectively, and jitter remained below 5 ms for most locations. These results demonstrate that public 5G connections can sustain real-time streaming of compressed video for AI segmentation tasks.
+
+\subsubsection{Economic feasibility}
+An additional consideration is the economic feasibility of deployment. Assuming an average bitrate of 7 Mbit/s, while continuous streaming for one hour takes approximately 3.15 GB of mobile data use. With a domestic subscription of 15 GB/month at EUR 5 in Belgium (Hey! Telecom \cite{heytelecom_gsm}), this corresponds to nearly five hours of guided walking per month. This cost structure illustrates that the solution is not only technically viable but also affordable for end users.
+
+
+\subsubsection{Conclusions on stability}
+The field measurements confirm that public 5G NR-NSA networks provide sufficient stability for real-time assistive navigation in outdoor park environments. Median RTT of around 21 ms and low jitter (2–4 ms) indicate that end-to-end latency will remain well below the 200 ms threshold considered acceptable for haptic feedback and walking guidance.  
+
+Only one measurement instance experienced a fallback to 4G LTE, characterized by a download speed of 4.5 Mbps, an upload of 1.4 Mbps, and a recorded RTT of 41 ms for this measurement. Although still usable, this illustrates the importance of continuously monitoring link state to trigger adaptive bitrate control and local failsafe mechanisms when needed.  
+
+Overall, the observed throughput and RTT values are sufficient for real-time cloud-assisted segmentation, provided that the uplink bitrate remains below approximately 3–4 Mbps and local safety mechanisms (e.g., smart cane or onboard depth sensors) remain active.  
+These findings confirm that the proposed system architecture can operate reliably over existing public 5G infrastructure, making large-scale deployment feasible without requiring private network slicing.
+
+
+
+
+\section{Conclusions}
+This work evaluated the feasibility of a real-time, vision-based assistive navigation system for VIPs using public 4G/5G networks. Extensive benchmarks compared edge-based inference on devices such as the RPI4/5 and laptop with cloud-based GPU inference, analyzing key performance indicators such as true end-to-end latency, frame rates, power consumption, inference time, frame-level reliability, and queue dynamics.  
+
+The results demonstrate that external GPU inference over domestic 5G networks can maintain end-to-end latencies easily below 200 ms, which is acceptable for safe navigation at walking speed. While edge devices such as the RPI5 are energy-efficient and portable, they lack sufficient computational capacity for real-time segmentation. Cloud-based inference therefore remains essential, provided that robust fallback mechanisms (e.g., smart cane, local obstacle detection) are in place. The tests further confirm that Wi-Fi connections yield more stable performance, yet public 5G links still deliver adequate responsiveness for real-world deployment, validating the viability of this approach.  
+
+A consistent finding is that queue size is the earliest indicator of overload. Once frames accumulate, latency rises sharply. This makes queue monitoring a practical fail-safe trigger, enabling timely degradation or fallback before the acceptable latency threshold (200 ms) is reached. In practice, such fail-safe mechanisms may include frame-rate throttling, temporary inference pausing, or switching to local obstacle detection once queue growth exceeds a predefined threshold.
+
+Power consumption benchmarks show that low-power devices such as the RPI5 (2.5–3.5 W) are far better suited for wearable use compared to laptops (10–17 W). Queue analysis highlighted the importance of selecting conservative FPS settings to avoid instability, while inference times around 12 ms on the GPU server confirm real-time capability even on lower-end hardware.  
+
+
+
+
+\section*{Acknowledgment}
+%This work establishes the scientific and technical foundation for the \textit{BlindNavParks} project, demonstrating that real-time, cloud-assisted navigation for visually impaired persons over public 5G is both feasible and cost-effective. The results directly support the implementation of pilot trials funded by the Koning Boudewijnstichting, paving the way for inclusive, scalable navigation solutions in public parks.
+%The author would like to thank Erasmushogeschool Brussel and the Knowledge Centre for Preventive Health Innovation for providing the research environment and infrastructure that supported this work. 
+The work is funded by the \textit{BlindNavParks} project (Nr. 2025-D7991000-N016), supported by the Koning Boudewijnstichting.
+
+%This research also builds upon initiatives supported by the Koning Boudewijnstichting, whose commitment to social inclusion and innovation for visually impaired persons helped shape the broader context of this study. Artificial intelligence tools, including large language models, were used as support tools during the research and writing process, primarily for language refinement, text restructuring, and consistency checks. All technical content, experimental design, data collection, analysis, and conclusions remain the sole responsibility of the author.
+\appendices
+
+\begin{thebibliography}{00}
+\bibitem{nadayanur2024voice}
+Nadayanur Sathis Kanna, A., Kamioka, E., Kanamaru, M., \& Phan Xuan, T. (2024, September). Voice-Guided Puddle Avoidance Walking Support System for Visually Impaired Pedestrians. In Proceedings of the 2024 The 6th World Symposium on Software Engineering (WSSE) (pp. 237-243).
+\bibitem{icane2025}
+I-Cane,
+``I-Cane Mobilo: Smart cane for the visually impaired,'' 2025. [Online]. Available: https://i-cane.nl/home. Accessed: Oct.~5,~2025.
+\bibitem{pathfinding2025}
+Ghahremanians, T., \& Mohammadi, H. M. (2025). Efficient Real-Time Pathfinding for Visually Impaired Individuals. IEEE Access.
+\bibitem{chen2025aigd}
+Jadhav, A., Cao, J., Shetty, A., Kumar, U., Sharma, A., Sukboontip, B., ... \& Koul, A. (2025, May). AI Guide Dog: Egocentric Path Prediction on Smartphone. In Proceedings of the AAAI Symposium Series (Vol. 5, No. 1, pp. 220-227).
+\bibitem{khan2025enhancing}
+Khan, A., Ramli, D. A., Rehman, M. Z., Bangash, J. I., \& Atta, M. N. (2025). Enhancing Smart Outdoor Object Navigation for the Visually Impaired via YOLOv10 with Neighbor Coordinates and C2FCIB Attention Mechanism. IEEE Access.
+
+\bibitem{black2024teleoperation}
+Black, D. G., Andjelic, D., \& Salcudean, S. E. (2024). Evaluation of communication and human response latency for (human) teleoperation. IEEE Transactions on Medical Robotics and Bionics, 6(1), 53-63.
+\bibitem{sah2025comprehensive}
+Sah, D. K., Vahabi, M., \& Fotouhi, H. (2025). A Comprehensive Review on 5G IIoT Test-Beds. IEEE Transactions on Consumer Electronics.
+\bibitem{11156811}
+Mandal, B., Singh, P., \& Ratna, S. (2025, August). Real-Time Object Detection and Environmental Feedback: A Smart Navigation System for the Blind Using AI. In 2025 12th International Conference on Emerging Trends in Engineering \& Technology-Signal and Information Processing (ICETET-SIP) (pp. 1-6). IEEE.
+\bibitem{dotlumen2025}
+.lumen,
+``The .lumen glasses: Artificial intelligence that empowers the blind,'' 2025. [Online]. Available: https://dotlumen.com. Accessed: Oct.~5,~2025.
+\bibitem{gao2019edge}
+Liu, L., Li, H., \& Gruteser, M. (2019, August). Edge assisted real-time object detection for mobile augmented reality. In The 25th annual international conference on mobile computing and networking (pp. 1-16).
+\bibitem{azzino2023vis4ion}
+Azzino, T., Mezzavilla, M., Rangan, S., Wang, Y. and Rizzo, J.R., 5g edge vision: wearable assistive technology for people with blindness and low vision, In 2024 IEEE Wireless Communications and Networking Conference (WCNC), pp. 1-6, 2024.
+\bibitem{VRLeleop2024IEEE}
+Blázovics, L., Kovács, V., \& Gótzy, M. (2024, October). Low Latency Video Streaming System for VR Teleoperation over 5G Networks. In 2024 IEEE International Conference on Metrology for eXtended Reality, Artificial Intelligence and Neural Engineering (MetroXRAINE) (pp. 982-987). IEEE.
+\bibitem{roboflow_models}
+Roboflow, Inc., ``Roboflow Models: Pretrained Computer Vision Models,'' [Online].
+Available: https://roboflow.com/models. Accessed: Jan. 22, 2026.
+\bibitem{heytelecom_gsm}
+HEY telecom, ``GSM-abonnementen,'' [Online].
+Available: https://www.heytelecom.be/nl/gsm-abonnementen. Accessed: Jan. 22, 2026.
+\end{thebibliography}
+\newpage
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{content/fotoStandaardMaarten.jpg}}]{Maarten Dequanter} is a Lecturer in Robotics and Artificial Intelligence at the Erasmushogeschool Brussel (EhB), Belgium, and a Researcher at the Research Center for Preventive Health Innovation (PHI). His expertise includes human–robot interaction, Internet of Things (IoT), and applied artificial intelligence, with a focus on intelligent robotic systems for Ambient Assisted Living (AAL) applications. His research targets AI-driven sensing and assistive technologies that support independent living, preventive healthcare, and user-centered interaction. He is involved in applied research projects at the intersection of robotics, AI, and health innovation, emphasizing real-world deployment, responsible AI, and human-centered design. He can be contacted at maarten.dequanter@ehb.be
+\end{IEEEbiography}
+
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{content/PadinFazelian.jpg}}]{Padin Fazelian} is a researcher specializing in large language models (LLMs) and applied artificial intelligence. His research focuses on the design, fine-tuning, and deployment of LLM-based systems for Ambient Assisted Living (AAL) applications, including intelligent assistants, context-aware support systems, and human-centered AI solutions. He has experience in integrating LLMs with multimodal data sources and interactive platforms, with an emphasis on robustness, interpretability, and responsible AI use. His research interests include natural language processing, generative AI, and scalable AI architectures for assistive and healthcare-oriented environments. He can be contacted at padin.fazelian1@ehb.be
+\end{IEEEbiography}
+
+%If you do not have or do not want to include a photo, you can use IEEEbiographynophoto as shown below:
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{content/fotoStandaardAn.jpg}}]{An Braeken} is full time professor at VUB-INDI. Her interests include lightweight security and privacy protocols for IoT, cloud and fog, blockchain and 5G security. She has developed several lightweight security solutions in the healthcare domain.  She is (co-)author of over 200 publications. She has been member of the program committee for numerous conferences and workshops and member of the editorial board for Security and Communications magazine. She can be contacted at an.braeken@vub.be.
+\end{IEEEbiography}
+
+\EOD
+
+\end{document}
