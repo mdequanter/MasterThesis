@@ -173,6 +173,43 @@ def read_gps_once(port="/dev/ttyUSB0", baud=9600, timeout_s=1.5, max_lines=120):
 # ---------- Speech (piper TTS) ----------
 PIPER_MODEL = "/home/pi/faceassist/voices/nl_BE-nathalie-medium.onnx"
 
+def _nl_num(x, decimals=0):
+    """Format a number for Dutch TTS (decimal comma)."""
+    if x is None:
+        return None
+    try:
+        txt = f"{float(x):.{decimals}f}"
+    except Exception:
+        return None
+    return txt.replace(".", ",")
+
+def build_speech(prefix, ookla, gps):
+    """Build the spoken summary: latency, upload/download and GPS availability."""
+    parts = [prefix.rstrip(".")]
+
+    if not ookla:
+        parts.append("geen snelheidstest")
+    elif ookla.get("error"):
+        parts.append("snelheidstest mislukt")
+    else:
+        lat_ms = _nl_num(ookla.get("latency_ms"))
+        dl     = _nl_num(ookla.get("download_Mbps"))
+        ul     = _nl_num(ookla.get("upload_Mbps"))
+        if lat_ms is not None:
+            parts.append(f"latentie {lat_ms} milliseconden")
+        if dl is not None:
+            parts.append(f"download {dl} megabit per seconde")
+        if ul is not None:
+            parts.append(f"upload {ul} megabit per seconde")
+
+    gps = gps or {}
+    if gps.get("lat") is not None and gps.get("lon") is not None:
+        parts.append("G P S beschikbaar")
+    else:
+        parts.append("geen G P S")
+
+    return ". ".join(parts) + "."
+
 def speak(text="Meting uitgevoerd", model=PIPER_MODEL, timeout=30):
     """Speak `text` through piper -> aplay. Never raises; returns True on success."""
     if not shutil.which("piper") or not shutil.which("aplay"):
@@ -210,7 +247,7 @@ def main():
     ap.add_argument("--gps-port", type=str, default="", help="GPS serial port (e.g., /dev/ttyUSB0). Leave empty to skip.")
     ap.add_argument("--gps-baud", type=int, default=9600, help="GPS baud rate (default 9600)")
     ap.add_argument("--no-speak", action="store_true", help="do NOT speak after each measurement")
-    ap.add_argument("--speak-text", type=str, default="Meting uitgevoerd", help="text spoken after each measurement")
+    ap.add_argument("--speak-text", type=str, default="Meting uitgevoerd", help="spoken prefix, followed by latency/speeds/GPS status")
     ap.add_argument("--piper-model", type=str, default=PIPER_MODEL, help="path to the piper .onnx voice model")
     args = ap.parse_args()
 
@@ -339,9 +376,11 @@ def main():
 
         write_csv(args.csv, header, row)
 
-        # Announce that a measurement was taken
+        # Announce the measurement result out loud
         if not args.no_speak:
-            speak(args.speak_text, model=args.piper_model)
+            phrase = build_speech(args.speak_text, ookla, gps)
+            print(f"Speaking: {phrase}")
+            speak(phrase, model=args.piper_model)
 
         # Stop after N runs if requested
         if args.runs and iteration >= args.runs:
