@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, requests, os, subprocess, json, shutil, time, signal
+import argparse, requests, os, subprocess, json, shutil, time, signal, shlex
 from datetime import datetime
 
 URL = "http://192.168.1.1/api/model.json"
@@ -170,6 +170,25 @@ def read_gps_once(port="/dev/ttyUSB0", baud=9600, timeout_s=1.5, max_lines=120):
 
     return {"lat": lat, "lon": lon, "alt_m": alt_m, "fix_quality": fixq, "sats": sats}
 
+# ---------- Speech (piper TTS) ----------
+PIPER_MODEL = "/home/pi/faceassist/voices/nl_BE-nathalie-medium.onnx"
+
+def speak(text="Meting uitgevoerd", model=PIPER_MODEL, timeout=30):
+    """Speak `text` through piper -> aplay. Never raises; returns True on success."""
+    if not shutil.which("piper") or not shutil.which("aplay"):
+        return False
+    cmd = (
+        f"echo {shlex.quote(text)} | piper --model {shlex.quote(model)} --output_raw "
+        f"| aplay -r 22050 -f S16_LE -c 1 -t raw"
+    )
+    try:
+        subprocess.run(cmd, shell=True, timeout=timeout,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception as e:
+        print(f"TTS error: {e}")
+        return False
+
 # ---------- CSV ----------
 def write_csv(path, header, row):
     new = not os.path.exists(path) or os.path.getsize(path) == 0
@@ -190,6 +209,9 @@ def main():
     ap.add_argument("--no-single", action="store_true", help="do NOT use --single (use multi-stream test)")
     ap.add_argument("--gps-port", type=str, default="", help="GPS serial port (e.g., /dev/ttyUSB0). Leave empty to skip.")
     ap.add_argument("--gps-baud", type=int, default=9600, help="GPS baud rate (default 9600)")
+    ap.add_argument("--no-speak", action="store_true", help="do NOT speak after each measurement")
+    ap.add_argument("--speak-text", type=str, default="Meting uitgevoerd", help="text spoken after each measurement")
+    ap.add_argument("--piper-model", type=str, default=PIPER_MODEL, help="path to the piper .onnx voice model")
     args = ap.parse_args()
 
     stop = {"flag": False}
@@ -316,6 +338,10 @@ def main():
             print(f"{k}: {v}")  
 
         write_csv(args.csv, header, row)
+
+        # Announce that a measurement was taken
+        if not args.no_speak:
+            speak(args.speak_text, model=args.piper_model)
 
         # Stop after N runs if requested
         if args.runs and iteration >= args.runs:
